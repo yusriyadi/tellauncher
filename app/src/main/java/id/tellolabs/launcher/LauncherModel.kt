@@ -53,7 +53,9 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                     val activities = manager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
                     val collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
                     activities.asSequence()
-                        .filter { it.activityInfo.packageName != app.packageName && it.activityInfo.enabled }
+                        // The query already respects runtime component overrides. ActivityInfo.enabled
+                        // can still be false for a manifest-disabled alias enabled by the app later.
+                        .filter { it.activityInfo.packageName != app.packageName }
                         .map {
                             LauncherApp(
                                 ComponentName(it.activityInfo.packageName, it.activityInfo.name),
@@ -78,6 +80,9 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
     fun setGrid(value: Boolean) = save { repository.setGrid(value) }
     fun setListIcons(value: Boolean) = save { repository.setListIcons(value) }
     fun setDoubleTapLock(value: Boolean) = save { repository.setDoubleTapLock(value) }
+    fun setShowSeconds(value: Boolean) = save { repository.setShowSeconds(value) }
+    fun setShowDrawer(value: Boolean) = save { repository.setShowDrawer(value) }
+    fun setShowLauncherSettings(value: Boolean) = save { repository.setShowLauncherSettings(value) }
     fun setHidden(packageName: String, hidden: Boolean) = save { repository.setHidden(packageName, hidden) }
     fun setCustomShelf(enabled: Boolean) = save { repository.setCustomShelf(enabled) }
     fun setActiveShelf(id: String) = save { repository.setActiveShelf(id) }

@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.Bundle
 import android.net.Uri
 import android.provider.Settings
+import android.provider.AlarmClock
+import android.provider.CalendarContract
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -63,6 +65,18 @@ class MainActivity : ComponentActivity() {
                     onDefaultHome = ::requestDefaultHome,
                     onLaunch = ::launchApp,
                     onAppInfo = ::openAppInfo,
+                    onOpenAlarm = {
+                        openHomeShortcut(listOf(Intent(AlarmClock.ACTION_SHOW_ALARMS)), R.string.alarm_error)
+                    },
+                    onOpenCalendar = {
+                        val today = CalendarContract.CONTENT_URI.buildUpon()
+                            .appendPath("time").appendPath(System.currentTimeMillis().toString()).build()
+                        openHomeShortcut(
+                            listOf(Intent(Intent.ACTION_VIEW, today),
+                                Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_CALENDAR)),
+                            R.string.calendar_error,
+                        )
+                    },
                     lockAccessibilityEnabled = lockAccessibilityEnabled,
                     onAccessibilitySettings = ::openAccessibilitySettings,
                     onLockScreen = {
@@ -150,6 +164,20 @@ class MainActivity : ComponentActivity() {
         } catch (_: SecurityException) {
             Toast.makeText(this, R.string.app_info_error, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun openHomeShortcut(intents: List<Intent>, errorMessage: Int) {
+        for (intent in intents) {
+            try {
+                startActivity(intent)
+                return
+            } catch (_: android.content.ActivityNotFoundException) {
+                // Try the next supported system intent.
+            } catch (_: SecurityException) {
+                // Some device apps expose an intent but restrict access to it.
+            }
+        }
+        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
     }
 
     private fun openAccessibilitySettings() {

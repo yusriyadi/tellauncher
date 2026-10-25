@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Samsung Clock also requires this permission for ACTION_SHOW_ALARMS. -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />

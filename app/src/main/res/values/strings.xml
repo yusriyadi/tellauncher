@@ -4,6 +4,16 @@
     <string name="launcher_settings">Tellauncher Settings</string>
     <string name="double_tap_lock">Double tap to lock the app</string>
     <string name="double_tap_lock_hint">Double tap on Home to lock your phone</string>
+    <string name="show_seconds">Show seconds</string>
+    <string name="show_seconds_hint">Display seconds on the Home clock</string>
+    <string name="show_drawer">Show drawer</string>
+    <string name="show_drawer_hint">Show an app drawer button at the bottom of Home</string>
+    <string name="show_launcher_settings">Show launcher settings in drawer</string>
+    <string name="show_launcher_settings_hint">Show the Settings item in List and Grid. You can always long press Home to open Settings.</string>
+    <string name="open_alarm">Open alarms</string>
+    <string name="open_calendar">Open calendar</string>
+    <string name="alarm_error">No available app could open alarms</string>
+    <string name="calendar_error">No available app could open the calendar</string>
     <string name="double_tap_lock_unsupported">Requires Android 9 or later</string>
     <string name="lock_service_name">Tellauncher — Lock screen</string>
     <string name="accessibility_service_description">Locks your screen when you double tap on Tellauncher Home. Does not read screen content or control other apps.</string>

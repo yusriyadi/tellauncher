@@ -15,6 +15,9 @@ private val gridKey = booleanPreferencesKey("grid")
 private val iconsKey = booleanPreferencesKey("list_icons")
 private val hiddenKey = stringSetPreferencesKey("hidden_packages")
 private val doubleTapLockKey = booleanPreferencesKey("double_tap_lock")
+private val showSecondsKey = booleanPreferencesKey("show_seconds")
+private val showDrawerKey = booleanPreferencesKey("show_drawer")
+private val showLauncherSettingsKey = booleanPreferencesKey("show_launcher_settings_in_drawer")
 private val shelvesKey = stringPreferencesKey("shelves")
 private val customShelfKey = booleanPreferencesKey("custom_shelf_enabled")
 private val activeShelfKey = stringPreferencesKey("active_shelf_id")
@@ -27,6 +30,9 @@ data class LauncherPreferences(
     val listIcons: Boolean = false,
     val hiddenPackages: Set<String> = emptySet(),
     val doubleTapLock: Boolean = false,
+    val showSeconds: Boolean = false,
+    val showDrawer: Boolean = false,
+    val showLauncherSettings: Boolean = true,
     val shelves: List<Shelf> = emptyList(),
     val customShelf: Boolean = false,
     val activeShelfId: String? = null,
@@ -45,6 +51,9 @@ class LauncherPreferencesRepository(context: Context) {
             listIcons = values[iconsKey] ?: false,
             hiddenPackages = values[hiddenKey].orEmpty(),
             doubleTapLock = values[doubleTapLockKey] ?: false,
+            showSeconds = values[showSecondsKey] ?: false,
+            showDrawer = values[showDrawerKey] ?: false,
+            showLauncherSettings = values[showLauncherSettingsKey] ?: true,
             shelves = shelves,
             customShelf = values[customShelfKey] == true && shelves.isNotEmpty(),
             activeShelfId = values[activeShelfKey]?.takeIf { id ->
@@ -57,6 +66,9 @@ class LauncherPreferencesRepository(context: Context) {
     suspend fun setGrid(value: Boolean) { store.edit { it[gridKey] = value } }
     suspend fun setListIcons(value: Boolean) { store.edit { it[iconsKey] = value } }
     suspend fun setDoubleTapLock(value: Boolean) { store.edit { it[doubleTapLockKey] = value } }
+    suspend fun setShowSeconds(value: Boolean) { store.edit { it[showSecondsKey] = value } }
+    suspend fun setShowDrawer(value: Boolean) { store.edit { it[showDrawerKey] = value } }
+    suspend fun setShowLauncherSettings(value: Boolean) { store.edit { it[showLauncherSettingsKey] = value } }
     suspend fun setHidden(packageName: String, hidden: Boolean) {
         store.edit {
             val packages = it[hiddenKey].orEmpty()

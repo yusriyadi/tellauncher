@@ -2,6 +2,7 @@ package id.tellolabs.launcher
 
 import android.graphics.Typeface
 import android.os.Build
+import android.text.format.DateFormat
 import android.view.Gravity
 import android.widget.TextClock
 import androidx.activity.compose.BackHandler
@@ -32,6 +33,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -45,6 +52,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,6 +88,8 @@ fun LauncherUi(
     onDefaultHome: () -> Unit,
     onLaunch: (LauncherApp) -> Boolean,
     onAppInfo: (LauncherApp) -> Unit,
+    onOpenAlarm: () -> Unit,
+    onOpenCalendar: () -> Unit,
     lockAccessibilityEnabled: Boolean,
     onAccessibilitySettings: () -> Unit,
     onLockScreen: () -> Unit,
@@ -125,6 +135,11 @@ fun LauncherUi(
         ) { current ->
             when (current) {
                 Screen.Home -> HomeScreen(
+                    showSeconds = preferences?.showSeconds == true,
+                    showDrawer = preferences?.showDrawer == true,
+                    doubleTapEnabled = lockSupported && preferences?.doubleTapLock == true,
+                    onAlarm = onOpenAlarm,
+                    onCalendar = onOpenCalendar,
                     onDrawer = { query = ""; screen = Screen.Drawer },
                     onSettings = { screen = Screen.Settings },
                     onDoubleTap = {
@@ -168,6 +183,7 @@ fun LauncherUi(
                                     apps = visibleApps,
                                     grid = preferences?.grid == true,
                                     showIcons = preferences?.listIcons == true,
+                                    showSettings = preferences?.showLauncherSettings != false,
                                     emptyMessage = if (query.isBlank()) R.string.no_apps else R.string.no_results,
                                     onLaunch = { if (onLaunch(it)) home() },
                                     onHide = { model.setHidden(it.packageName, true) },
@@ -207,6 +223,30 @@ fun LauncherUi(
                                     onChange = model::setListIcons,
                                 )
                                 HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Color(0xFF202020))
+                            }
+                            item {
+                                ToggleSetting(
+                                    title = stringResource(R.string.show_seconds),
+                                    subtitle = stringResource(R.string.show_seconds_hint),
+                                    checked = prefs.showSeconds,
+                                    onChange = model::setShowSeconds,
+                                )
+                            }
+                            item {
+                                ToggleSetting(
+                                    title = stringResource(R.string.show_drawer),
+                                    subtitle = stringResource(R.string.show_drawer_hint),
+                                    checked = prefs.showDrawer,
+                                    onChange = model::setShowDrawer,
+                                )
+                            }
+                            item {
+                                ToggleSetting(
+                                    title = stringResource(R.string.show_launcher_settings),
+                                    subtitle = stringResource(R.string.show_launcher_settings_hint),
+                                    checked = prefs.showLauncherSettings,
+                                    onChange = model::setShowLauncherSettings,
+                                )
                             }
                             item {
                                 ToggleSetting(
@@ -354,13 +394,36 @@ fun LauncherUi(
 }
 
 @Composable
-private fun HomeScreen(onDrawer: () -> Unit, onSettings: () -> Unit, onDoubleTap: () -> Unit) {
+private fun HomeScreen(
+    showSeconds: Boolean,
+    showDrawer: Boolean,
+    doubleTapEnabled: Boolean,
+    onAlarm: () -> Unit,
+    onCalendar: () -> Unit,
+    onDrawer: () -> Unit,
+    onSettings: () -> Unit,
+    onDoubleTap: () -> Unit,
+) {
     val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
     val drawerLabel = stringResource(R.string.open_drawer)
     val settingsLabel = stringResource(R.string.settings)
     val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
+    val currentOnAlarm by rememberUpdatedState(onAlarm)
+    val currentOnCalendar by rememberUpdatedState(onCalendar)
+    val currentOnSettings by rememberUpdatedState(onSettings)
+    val tapTargets = remember { HomeTapTargets() }
+    val alarmLabel = stringResource(R.string.open_alarm)
+    val calendarLabel = stringResource(R.string.open_calendar)
+    val locale = LocalConfiguration.current.locales[0]
+    val format12 = remember(locale, showSeconds) {
+        DateFormat.getBestDateTimePattern(locale, if (showSeconds) "hms" else "hm")
+    }
+    val format24 = remember(locale, showSeconds) {
+        DateFormat.getBestDateTimePattern(locale, if (showSeconds) "Hms" else "Hm")
+    }
     Box(
         Modifier.fillMaxSize().background(Color.Black)
+            .onGloballyPositioned { tapTargets.homeOffset = it.positionInRoot() }
             .semantics {
                 customActions = listOf(
                     CustomAccessibilityAction(drawerLabel) { onDrawer(); true },
@@ -368,10 +431,18 @@ private fun HomeScreen(onDrawer: () -> Unit, onSettings: () -> Unit, onDoubleTap
                 )
                 contentDescription = drawerLabel
             }
-            .pointerInput(Unit) {
+            .pointerInput(doubleTapEnabled) {
                 detectTapGestures(
-                    onLongPress = { onSettings() },
-                    onDoubleTap = { currentOnDoubleTap() },
+                    onLongPress = { currentOnSettings() },
+                    // One recognizer delays a single tap until double-tap detection finishes.
+                    onDoubleTap = if (doubleTapEnabled) ({ currentOnDoubleTap() }) else null,
+                    onTap = { position ->
+                        val rootPosition = position + tapTargets.homeOffset
+                        when {
+                            tapTargets.clock.contains(rootPosition) -> currentOnAlarm()
+                            tapTargets.date.contains(rootPosition) -> currentOnCalendar()
+                        }
+                    },
                 )
             }
             .pointerInput(swipeThreshold) {
@@ -385,42 +456,70 @@ private fun HomeScreen(onDrawer: () -> Unit, onSettings: () -> Unit, onDoubleTap
             },
         contentAlignment = Alignment.TopCenter,
     ) {
-        Column(
-            modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(top = 64.dp, start = 24.dp, end = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            AndroidView(
-                factory = { context ->
-                    TextClock(context).apply {
-                        // Null formats follow the system's locale and 12/24-hour preference.
-                        textSize = 28f
-                        setTextColor(android.graphics.Color.rgb(189, 189, 189))
-                        typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-                        gravity = Gravity.CENTER
-                        importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
-                    }
-                },
-                modifier = Modifier.wrapContentSize(),
-            )
-            Spacer(Modifier.height(8.dp))
-            AndroidView(
-                factory = { context ->
-                    TextClock(context).apply {
-                        // TextClock localizes weekday names and updates at midnight/time-zone changes.
-                        format12Hour = "EEEE, dd-MM-yyyy"
-                        format24Hour = "EEEE, dd-MM-yyyy"
-                        textSize = 14f
-                        setTextColor(android.graphics.Color.rgb(146, 146, 146))
-                        typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-                        gravity = Gravity.CENTER
-                        importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
-                    }
-                },
-                modifier = Modifier.wrapContentSize(),
-            )
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            Column(
+                modifier = Modifier.align(Alignment.TopCenter)
+                    .padding(top = 64.dp, start = 24.dp, end = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                AndroidView(
+                    factory = { context ->
+                        TextClock(context).apply {
+                            textSize = 28f
+                            setTextColor(android.graphics.Color.rgb(189, 189, 189))
+                            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+                            gravity = Gravity.CENTER
+                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                        }
+                    },
+                    update = { clock ->
+                        if (clock.format12Hour?.toString() != format12) clock.format12Hour = format12
+                        if (clock.format24Hour?.toString() != format24) clock.format24Hour = format24
+                    },
+                    modifier = Modifier.wrapContentSize()
+                        .onGloballyPositioned { tapTargets.clock = it.boundsInRoot() }
+                        .semantics {
+                            onClick(label = alarmLabel) { currentOnAlarm(); true }
+                        },
+                )
+                Spacer(Modifier.height(8.dp))
+                AndroidView(
+                    factory = { context ->
+                        TextClock(context).apply {
+                            // TextClock localizes weekday names and updates at midnight/time-zone changes.
+                            format12Hour = "EEEE, dd-MM-yyyy"
+                            format24Hour = "EEEE, dd-MM-yyyy"
+                            textSize = 14f
+                            setTextColor(android.graphics.Color.rgb(146, 146, 146))
+                            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+                            gravity = Gravity.CENTER
+                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                        }
+                    },
+                    modifier = Modifier.wrapContentSize()
+                        .onGloballyPositioned { tapTargets.date = it.boundsInRoot() }
+                        .semantics {
+                            onClick(label = calendarLabel) { currentOnCalendar(); true }
+                        },
+                )
+            }
+            if (showDrawer) {
+                IconButton(
+                    onClick = onDrawer,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp).size(56.dp),
+                ) {
+                    Icon(painterResource(R.drawable.ic_app_drawer), contentDescription = drawerLabel,
+                        tint = Color(0xFFBDBDBD), modifier = Modifier.size(24.dp))
+                }
+            }
         }
     }
+}
+
+private class HomeTapTargets {
+    var homeOffset: Offset = Offset.Zero
+    var clock: Rect = Rect.Zero
+    var date: Rect = Rect.Zero
 }
 
 @Composable
@@ -428,6 +527,7 @@ private fun AppCollection(
     apps: List<LauncherApp>,
     grid: Boolean,
     showIcons: Boolean,
+    showSettings: Boolean,
     emptyMessage: Int,
     onLaunch: (LauncherApp) -> Unit,
     onHide: (LauncherApp) -> Unit,
@@ -458,17 +558,19 @@ private fun AppCollection(
                     }
                 }
             }
-            item(key = "tellauncher_settings") {
-                Column(
-                    Modifier.fillMaxWidth().clickable(onClick = onSettings)
-                        .padding(horizontal = 8.dp, vertical = 18.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Image(painterResource(R.drawable.ic_launcher), contentDescription = null,
-                        modifier = Modifier.size(40.dp))
-                    Spacer(Modifier.height(12.dp))
-                    Text(stringResource(R.string.launcher_settings), fontSize = 13.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (showSettings) {
+                item(key = "tellauncher_settings") {
+                    Column(
+                        Modifier.fillMaxWidth().clickable(onClick = onSettings)
+                            .padding(horizontal = 8.dp, vertical = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Image(painterResource(R.drawable.ic_launcher), contentDescription = null,
+                            modifier = Modifier.size(40.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text(stringResource(R.string.launcher_settings), fontSize = 13.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
                 }
             }
         }
@@ -495,18 +597,20 @@ private fun AppCollection(
                     }
                 }
             }
-            item(key = "tellauncher_settings") {
-                Row(
-                    Modifier.fillMaxWidth().clickable(onClick = onSettings)
-                        .heightIn(min = 60.dp).padding(horizontal = 28.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (showIcons) {
-                        Image(painterResource(R.drawable.ic_launcher), contentDescription = null,
-                            modifier = Modifier.size(28.dp))
-                        Spacer(Modifier.width(20.dp))
+            if (showSettings) {
+                item(key = "tellauncher_settings") {
+                    Row(
+                        Modifier.fillMaxWidth().clickable(onClick = onSettings)
+                            .heightIn(min = 60.dp).padding(horizontal = 28.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (showIcons) {
+                            Image(painterResource(R.drawable.ic_launcher), contentDescription = null,
+                                modifier = Modifier.size(28.dp))
+                            Spacer(Modifier.width(20.dp))
+                        }
+                        Text(stringResource(R.string.launcher_settings), fontSize = 18.sp)
                     }
-                    Text(stringResource(R.string.launcher_settings), fontSize = 18.sp)
                 }
             }
         }

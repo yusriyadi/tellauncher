@@ -5,11 +5,14 @@ Launcher Android pribadi dengan Kotlin dan Jetpack Compose. Minimum Android 8.0 
 ## Cara pakai
 
 - Home menampilkan jam kecil di tengah atas dan tanggal di bawahnya (`EEEE, dd-MM-yyyy`, misalnya `Senin, 02-11-2026`). Format waktu dan bahasa nama hari mengikuti perangkat.
+- **Show seconds** di Settings menambahkan detik pada jam Home (default nonaktif). Ketuk jam untuk membuka alarm; ketuk tanggal untuk membuka kalender. Saat double tap lock aktif, satu ketukan menunggu deteksi double tap agar alarm/kalender tidak terbuka saat mengunci HP.
 - Swipe ke atas membuka drawer layar penuh.
+- Aktifkan **Show drawer** di Settings untuk menampilkan tombol drawer di bawah Home (default nonaktif). Tombol ditempatkan di atas inset navigation bar; jam dan tanggal tetap di bawah inset atas. Swipe ke atas tetap tersedia.
 - Tekan lama Home membuka Pengaturan.
 - Aktifkan **Double tap to lock the app** di Pengaturan untuk mengunci HP dengan dua ketukan di Home (Android 9+). Jika layanan aksesibilitas belum aktif, dialog akan mengarahkan ke Pengaturan Aksesibilitas. Aktifkan **Tellauncher — Kunci layar**, lalu kembali. Layanan hanya menjalankan aksi kunci layar dan tidak meminta akses isi layar.
 - Drawer dimulai dengan List tanpa ikon. Cari aplikasi lewat kolom di bawah; keyboard dibuka saat kolom diketuk.
 - Pengaturan menyediakan List/Grid, ikon List, aplikasi tersembunyi, dan pilihan launcher default.
+- **Show launcher settings in drawer** mengatur visibilitas item Settings di List/Grid, termasuk shelf dan hasil pencarian (default aktif). Tekan lama Home tetap membuka Settings saat item disembunyikan.
 - **Custom shelf** membatasi drawer ke satu shelf aktif. Aktifkan untuk membuat shelf pertama; gunakan **Add shelf** untuk menambah, radio button untuk memilih yang aktif, dan ketuk nama shelf untuk mengedit. Aplikasi yang dipilih naik ke **Selected**, lalu tekan **Save**. Shelf buatan menampilkan semua aplikasi yang dipilih, termasuk Hidden apps. Pencarian tetap menjangkau semua aplikasi.
 - Saat Custom shelf aktif dan ada shelf, ketuk nama shelf kecil di atas drawer untuk berganti shelf atau memilih **All apps**. All apps tetap mengikuti Hidden apps. Pemilih ini disembunyikan saat Custom shelf nonaktif atau tidak ada shelf. Pilihan terakhir tersimpan, dan mengganti shelf mengosongkan pencarian.
 - **Hidden apps** dan editor shelf menyediakan pencarian nama aplikasi di bawah daftar. Pencarian hanya memfilter tampilan; status switch dan pilihan aplikasi di luar hasil pencarian tetap dipertahankan saat disimpan.
