@@ -13,6 +13,7 @@ import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -33,6 +34,9 @@ class MainActivity : ComponentActivity() {
     private var homeRequest by mutableIntStateOf(0)
     private var isDefaultHome by mutableStateOf(false)
     private var lockAccessibilityEnabled by mutableStateOf(false)
+    private val defaultHomeRequest = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        updateDefaultHome()
+    }
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { model.refreshApps() }
     }
@@ -93,6 +97,10 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         model.refreshApps()
         lockAccessibilityEnabled = LockAccessibilityService.isEnabled(this)
+        updateDefaultHome()
+    }
+
+    private fun updateDefaultHome() {
         isDefaultHome = if (Build.VERSION.SDK_INT >= 29) {
             getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_HOME)
         } else {
@@ -140,14 +148,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestDefaultHome() {
-        try {
-            if (Build.VERSION.SDK_INT >= 29) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
                 val role = getSystemService(RoleManager::class.java)
                 if (role.isRoleAvailable(RoleManager.ROLE_HOME) && !role.isRoleHeld(RoleManager.ROLE_HOME)) {
-                    startActivity(role.createRequestRoleIntent(RoleManager.ROLE_HOME))
+                    defaultHomeRequest.launch(role.createRequestRoleIntent(RoleManager.ROLE_HOME))
                     return
                 }
+            } catch (_: android.content.ActivityNotFoundException) {
+                // Fall back to Home settings if the device cannot show the role dialog.
+            } catch (_: SecurityException) {
+                // Some devices restrict the role request activity.
             }
+        }
+        try {
             startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
         } catch (_: Exception) {
             Toast.makeText(this, R.string.default_error, Toast.LENGTH_LONG).show()
