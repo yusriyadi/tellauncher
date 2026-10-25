@@ -83,6 +83,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
     fun setShowSeconds(value: Boolean) = save { repository.setShowSeconds(value) }
     fun setShowDrawer(value: Boolean) = save { repository.setShowDrawer(value) }
     fun setShowLauncherSettings(value: Boolean) = save { repository.setShowLauncherSettings(value) }
+    fun setThemeMode(value: ThemeMode) = save { repository.setThemeMode(value) }
     fun setHidden(packageName: String, hidden: Boolean) = save { repository.setHidden(packageName, hidden) }
     fun setCustomShelf(enabled: Boolean) = save { repository.setCustomShelf(enabled) }
     fun setActiveShelf(id: String) = save { repository.setActiveShelf(id) }

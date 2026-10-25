@@ -1,0 +1,5 @@
+<resources>
+    <color name="launcher_background">#101010</color>
+    <color name="launcher_accent">#BDBDBD</color>
+    <bool name="launcher_light_system_bars">false</bool>
+</resources>

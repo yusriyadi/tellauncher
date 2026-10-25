@@ -22,8 +22,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -45,7 +44,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         homeRequest = savedInstanceState?.getInt("home_request") ?: 0
         enableEdgeToEdge()
-        showSystemBars()
         ContextCompat.registerReceiver(
             this, packageReceiver,
             IntentFilter().apply {
@@ -61,7 +59,8 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            LauncherTheme {
+            val preferences by model.preferences.collectAsStateWithLifecycle()
+            LauncherTheme(mode = preferences?.themeMode ?: ThemeMode.SYSTEM) {
                 LauncherUi(
                     model = model,
                     homeRequest = homeRequest,
@@ -124,14 +123,6 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         unregisterReceiver(packageReceiver)
         super.onDestroy()
-    }
-
-    private fun showSystemBars() {
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
-            show(WindowInsetsCompat.Type.systemBars())
-        }
     }
 
     private fun launchApp(app: LauncherApp): Boolean = try {

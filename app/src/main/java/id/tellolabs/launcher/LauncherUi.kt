@@ -32,7 +32,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInRoot
@@ -41,6 +40,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -64,21 +64,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private enum class Screen { Home, Drawer, Settings, Hidden, ShelfEditor }
-private val muted = Color(0xFF929292)
-
-@Composable
-fun LauncherTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Color(0xFFD0D0D0), onPrimary = Color.Black,
-            background = Color.Black, onBackground = Color(0xFFD0D0D0),
-            surface = Color.Black, onSurface = Color(0xFFD0D0D0),
-            surfaceVariant = Color(0xFF161616), onSurfaceVariant = muted,
-            outline = Color(0xFF424242),
-        ),
-        content = content,
-    )
-}
 
 @Composable
 fun LauncherUi(
@@ -127,7 +112,7 @@ fun LauncherUi(
         screen = Screen.ShelfEditor
     }
 
-    Surface(Modifier.fillMaxSize(), color = Color.Black) {
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         AnimatedContent(
             targetState = screen,
             transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) },
@@ -208,7 +193,12 @@ fun LauncherUi(
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
                         ) {
                             item {
-                                Text(stringResource(R.string.layout), color = muted, fontSize = 13.sp)
+                                ThemeSetting(mode = prefs.themeMode, onChange = model::setThemeMode)
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                            item {
+                                Text(stringResource(R.string.layout), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                                 Row(Modifier.padding(top = 4.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     FilterChip(selected = !prefs.grid, onClick = { model.setGrid(false) }, label = { Text(stringResource(R.string.list)) })
                                     FilterChip(selected = prefs.grid, onClick = { model.setGrid(true) }, label = { Text(stringResource(R.string.grid)) })
@@ -222,7 +212,7 @@ fun LauncherUi(
                                     enabled = !prefs.grid,
                                     onChange = model::setListIcons,
                                 )
-                                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Color(0xFF202020))
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest)
                             }
                             item {
                                 ToggleSetting(
@@ -282,7 +272,7 @@ fun LauncherUi(
                                 }
                             }
                             item {
-                                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Color(0xFF202020))
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest)
                                 SettingLink(
                                     stringResource(R.string.hidden_apps),
                                     stringResource(R.string.hidden_count, prefs.hiddenPackages.size),
@@ -337,7 +327,7 @@ fun LauncherUi(
                 ) {
                     PageHeader(R.string.hidden_apps) { keyboard?.hide(); screen = Screen.Settings }
                     Text(
-                        stringResource(R.string.hidden_hint), color = muted, fontSize = 13.sp,
+                        stringResource(R.string.hidden_hint), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     )
                     Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -414,6 +404,8 @@ private fun HomeScreen(
     val tapTargets = remember { HomeTapTargets() }
     val alarmLabel = stringResource(R.string.open_alarm)
     val calendarLabel = stringResource(R.string.open_calendar)
+    val clockColor = MaterialTheme.colorScheme.primary.toArgb()
+    val dateColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
     val locale = LocalConfiguration.current.locales[0]
     val format12 = remember(locale, showSeconds) {
         DateFormat.getBestDateTimePattern(locale, if (showSeconds) "hms" else "hm")
@@ -422,7 +414,7 @@ private fun HomeScreen(
         DateFormat.getBestDateTimePattern(locale, if (showSeconds) "Hms" else "Hm")
     }
     Box(
-        Modifier.fillMaxSize().background(Color.Black)
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             .onGloballyPositioned { tapTargets.homeOffset = it.positionInRoot() }
             .semantics {
                 customActions = listOf(
@@ -466,13 +458,14 @@ private fun HomeScreen(
                     factory = { context ->
                         TextClock(context).apply {
                             textSize = 28f
-                            setTextColor(android.graphics.Color.rgb(189, 189, 189))
+                            setTextColor(clockColor)
                             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
                             gravity = Gravity.CENTER
                             importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
                         }
                     },
                     update = { clock ->
+                        clock.setTextColor(clockColor)
                         if (clock.format12Hour?.toString() != format12) clock.format12Hour = format12
                         if (clock.format24Hour?.toString() != format24) clock.format24Hour = format24
                     },
@@ -490,12 +483,13 @@ private fun HomeScreen(
                             format12Hour = "EEEE, dd-MM-yyyy"
                             format24Hour = "EEEE, dd-MM-yyyy"
                             textSize = 14f
-                            setTextColor(android.graphics.Color.rgb(146, 146, 146))
+                            setTextColor(dateColor)
                             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
                             gravity = Gravity.CENTER
                             importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
                         }
                     },
+                    update = { date -> date.setTextColor(dateColor) },
                     modifier = Modifier.wrapContentSize()
                         .onGloballyPositioned { tapTargets.date = it.boundsInRoot() }
                         .semantics {
@@ -509,7 +503,7 @@ private fun HomeScreen(
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp).size(56.dp),
                 ) {
                     Icon(painterResource(R.drawable.ic_app_drawer), contentDescription = drawerLabel,
-                        tint = Color(0xFFBDBDBD), modifier = Modifier.size(24.dp))
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 }
             }
         }
@@ -541,7 +535,7 @@ private fun AppCollection(
         ) {
             if (apps.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    Text(stringResource(emptyMessage), color = muted, fontSize = 14.sp,
+                    Text(stringResource(emptyMessage), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
                         modifier = Modifier.padding(16.dp))
                 }
             }
@@ -578,7 +572,7 @@ private fun AppCollection(
         LazyColumn(contentPadding = PaddingValues(vertical = 20.dp)) {
             if (apps.isEmpty()) {
                 item {
-                    Text(stringResource(emptyMessage), color = muted, fontSize = 14.sp,
+                    Text(stringResource(emptyMessage), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
                         modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp))
                 }
             }
@@ -658,7 +652,7 @@ internal fun AppIcon(app: LauncherApp, modifier: Modifier) {
     }
     val image = bitmap
     if (image != null) Image(image, contentDescription = null, modifier = modifier)
-    else Box(modifier.background(Color(0xFF202020), RoundedCornerShape(8.dp)))
+    else Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(8.dp)))
 }
 
 @Composable
@@ -715,8 +709,8 @@ internal fun ToggleSetting(
             Spacer(Modifier.width(20.dp))
         }
         Column(Modifier.weight(1f).padding(end = 16.dp)) {
-            Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else muted, fontSize = 16.sp)
-            if (subtitle != null) Text(subtitle, color = muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+            Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
+            if (subtitle != null) Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
         }
         Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
@@ -727,14 +721,14 @@ private fun SettingLink(title: String, subtitle: String, enabled: Boolean = true
     Column(Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick)
         .heightIn(min = 56.dp).padding(vertical = 8.dp)) {
         Text(title, fontSize = 16.sp)
-        Text(subtitle, color = muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
     }
 }
 
 @Composable
 internal fun EmptyMessage(message: Int) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-        Text(stringResource(message), color = muted, fontSize = 14.sp)
+        Text(stringResource(message), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
     }
 }
 
@@ -752,7 +746,7 @@ private fun ShelfSettingRow(name: String, selected: Boolean, onSelect: () -> Uni
             .padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(name, modifier = Modifier.weight(1f), fontSize = 16.sp)
             if (onEdit != null) {
-                Text(stringResource(R.string.edit), color = muted, fontSize = 12.sp,
+                Text(stringResource(R.string.edit), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
                     modifier = Modifier.padding(start = 8.dp))
             }
         }
@@ -766,10 +760,10 @@ private fun DrawerShelfPicker(preferences: LauncherPreferences, onSelect: (Strin
     val options = listOf(ALL_APPS_SHELF_ID to allApps) + preferences.shelves.map { it.id to it.name }
     Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         TextButton(onClick = { expanded = true }) {
-            Text(preferences.activeShelf?.name ?: allApps, fontSize = 13.sp, color = muted,
+            Text(preferences.activeShelf?.name ?: allApps, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             Spacer(Modifier.width(8.dp))
-            Text("▾", color = muted)
+            Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { (id, name) ->
