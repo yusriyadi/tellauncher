@@ -38,15 +38,3 @@ Jalankan Tellauncher, tekan lama Home, lalu pilih **Jadikan launcher default**. 
 5. Restart launcher/perangkat dan pastikan preferensi tetap tersimpan.
 
 Pengelolaan dependency Compose mengikuti [dokumentasi BOM Android](https://developer.android.com/develop/ui/compose/bom).
-
-## Release lokal
-
-Release menonaktifkan mode debug dan mengaktifkan optimasi kode serta resource. Signing menggunakan `signing.properties` lokal dengan `storeFile`, `storePassword`, `keyAlias`, dan `keyPassword`. File ini dan direktori `.signing/` diabaikan Git. Simpan backup keduanya secara aman: key yang sama diperlukan untuk update release berikutnya.
-
-```sh
-./gradlew assembleRelease
-```
-
-Untuk memasang release berdampingan dengan debug, gunakan `./gradlew assembleRelease -PreleaseSideBySide=true`. Varian ini memakai ID `id.tellolabs.launcher.production` dan nama **Tellauncher Production**, dengan pengaturan terpisah. Gunakan opsi yang sama pada update berikutnya.
-
-APK ada di `app/build/outputs/apk/release/app-release.apk`. Release dengan ID asli tidak bisa memperbarui debug yang ditandatangani key berbeda; uninstall akan menghapus pengaturan aplikasi.
