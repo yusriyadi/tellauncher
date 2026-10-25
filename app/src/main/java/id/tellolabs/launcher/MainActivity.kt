@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
+import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -36,6 +37,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        homeRequest = savedInstanceState?.getInt("home_request") ?: 0
         enableEdgeToEdge()
         showSystemBars()
         ContextCompat.registerReceiver(
@@ -60,6 +62,7 @@ class MainActivity : ComponentActivity() {
                     defaultHome = isDefaultHome,
                     onDefaultHome = ::requestDefaultHome,
                     onLaunch = ::launchApp,
+                    onAppInfo = ::openAppInfo,
                     lockAccessibilityEnabled = lockAccessibilityEnabled,
                     onAccessibilitySettings = ::openAccessibilitySettings,
                     onLockScreen = {
@@ -89,6 +92,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         homeRequest++
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("home_request", homeRequest)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onDestroy() {
@@ -129,6 +137,18 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
         } catch (_: Exception) {
             Toast.makeText(this, R.string.default_error, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openAppInfo(app: LauncherApp) {
+        try {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", app.packageName, null)
+            })
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, R.string.app_info_error, Toast.LENGTH_SHORT).show()
+        } catch (_: SecurityException) {
+            Toast.makeText(this, R.string.app_info_error, Toast.LENGTH_SHORT).show()
         }
     }
 

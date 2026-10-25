@@ -34,6 +34,12 @@ android {
         }
     }
     buildTypes {
+        debug {
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "Tellauncher Dev")
+            resValue("string", "lock_service_name", "Tellauncher Dev — Lock screen")
+        }
         release {
             isDebuggable = false
             isMinifyEnabled = true

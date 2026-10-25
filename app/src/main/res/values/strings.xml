@@ -8,7 +8,7 @@
     <string name="lock_service_name">Tellauncher — Lock screen</string>
     <string name="accessibility_service_description">Locks your screen when you double tap on Tellauncher Home. Does not read screen content or control other apps.</string>
     <string name="accessibility_required">Enable accessibility</string>
-    <string name="accessibility_required_message">To lock your screen with a double tap, enable “Tellauncher — Lock screen” in Accessibility Settings. This service is only used to lock your screen.</string>
+    <string name="accessibility_required_message">To lock your screen with a double tap, enable “%1$s” in Accessibility Settings. This service is only used to lock your screen.</string>
     <string name="open_accessibility_settings">Open Accessibility Settings</string>
     <string name="later">Later</string>
     <string name="lock_failed">Unable to lock your screen. Make sure the Tellauncher service is enabled in Accessibility Settings, then try again.</string>
@@ -16,6 +16,10 @@
     <string name="back">Back</string>
     <string name="open_drawer">Open app drawer</string>
     <string name="search_apps">Search apps</string>
+    <string name="app_actions">App actions</string>
+    <string name="hide_app">Hide app</string>
+    <string name="app_info">App info</string>
+    <string name="app_info_error">Unable to open app info</string>
     <string name="clear_search">Clear search</string>
     <string name="no_results">No apps found</string>
     <string name="no_apps">No apps to display</string>
@@ -27,7 +31,7 @@
     <string name="list_icons_hint">Only applies to List layout</string>
     <string name="hidden_apps">Hidden apps</string>
     <string name="hidden_count">Hidden apps: %1$d</string>
-    <string name="hidden_hint">Turn on to hide an app from the drawer and search. Apps remain installed; this is not a security feature.</string>
+    <string name="hidden_hint">Turn on to hide an app from All apps and the default drawer. Apps selected for a custom shelf remain visible there. Search still finds all apps. This is not a security feature.</string>
     <string name="default_launcher">Set as default launcher</string>
     <string name="default_active">Already the default launcher</string>
     <string name="default_hint">Choose Tellauncher as your Home app</string>
@@ -36,4 +40,21 @@
     <string name="load_error">Unable to load apps. Reopen the launcher to try again.</string>
     <string name="preferences_error">Unable to load settings. Reopen the launcher to try again.</string>
     <string name="default_error">Open Android Settings to choose your default Home app</string>
+    <string name="custom_shelf">Custom shelf</string>
+    <string name="custom_shelf_hint">Show one shelf in the drawer. Search still finds all apps.</string>
+    <string name="add_shelf">Add shelf</string>
+    <string name="edit_shelf">Edit shelf</string>
+    <string name="shelf_name">Shelf name</string>
+    <string name="shelf_editor_hint">Choose apps for this shelf. Selected apps appear here even if hidden from All apps.</string>
+    <string name="selected_apps">Selected (%1$d)</string>
+    <string name="all_apps">All apps</string>
+    <string name="no_selected_apps">No apps selected yet</string>
+    <string name="no_matching_selected_apps">No selected apps match your search</string>
+    <string name="save">Save</string>
+    <string name="saving">Saving…</string>
+    <string name="edit">Edit</string>
+    <string name="delete_shelf">Delete shelf</string>
+    <string name="delete_shelf_message">Delete “%1$s”? Apps will remain installed. If this is the active shelf, another shelf will be selected. Deleting the last shelf turns Custom shelf off.</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
 </resources>

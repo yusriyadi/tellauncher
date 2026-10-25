@@ -4,10 +4,6 @@ import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringSetPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.text.Collator
@@ -19,23 +15,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-private val Application.preferences by preferencesDataStore("launcher_settings")
-private val gridKey = booleanPreferencesKey("grid")
-private val iconsKey = booleanPreferencesKey("list_icons")
-private val hiddenKey = stringSetPreferencesKey("hidden_packages")
-private val doubleTapLockKey = booleanPreferencesKey("double_tap_lock")
-
-data class LauncherPreferences(
-    val grid: Boolean = false,
-    val listIcons: Boolean = false,
-    val hiddenPackages: Set<String> = emptySet(),
-    val doubleTapLock: Boolean = false,
-)
 
 data class LauncherApp(val component: ComponentName, val label: String) {
     val packageName: String get() = component.packageName
@@ -43,19 +25,12 @@ data class LauncherApp(val component: ComponentName, val label: String) {
 }
 
 class LauncherModel(application: Application) : AndroidViewModel(application) {
-    private val store = application.preferences
+    private val repository = LauncherPreferencesRepository(application)
     private val messages = MutableSharedFlow<Int>(extraBufferCapacity = 8)
     val errors = messages.asSharedFlow()
     private val mutablePreferenceError = MutableStateFlow(false)
     val preferenceError = mutablePreferenceError.asStateFlow()
-    val preferences = store.data.map { values ->
-        LauncherPreferences(
-            grid = values[gridKey] ?: false,
-            listIcons = values[iconsKey] ?: false,
-            hiddenPackages = values[hiddenKey].orEmpty(),
-            doubleTapLock = values[doubleTapLockKey] ?: false,
-        )
-    }.catch {
+    val preferences = repository.preferences.catch {
         // Keep the drawer closed if saved hidden-app preferences cannot be read.
         mutablePreferenceError.value = true
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -100,23 +75,26 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun setGrid(value: Boolean) = save { it[gridKey] = value }
-    fun setListIcons(value: Boolean) = save { it[iconsKey] = value }
-    fun setDoubleTapLock(value: Boolean) = save { it[doubleTapLockKey] = value }
-    fun setHidden(packageName: String, hidden: Boolean) = save {
-        val packages = it[hiddenKey].orEmpty()
-        it[hiddenKey] = if (hidden) packages + packageName else packages - packageName
+    fun setGrid(value: Boolean) = save { repository.setGrid(value) }
+    fun setListIcons(value: Boolean) = save { repository.setListIcons(value) }
+    fun setDoubleTapLock(value: Boolean) = save { repository.setDoubleTapLock(value) }
+    fun setHidden(packageName: String, hidden: Boolean) = save { repository.setHidden(packageName, hidden) }
+    fun setCustomShelf(enabled: Boolean) = save { repository.setCustomShelf(enabled) }
+    fun setActiveShelf(id: String) = save { repository.setActiveShelf(id) }
+    suspend fun saveShelf(shelf: Shelf, activate: Boolean): Boolean = persist { repository.saveShelf(shelf, activate) }
+    suspend fun deleteShelf(id: String): Boolean = persist { repository.deleteShelf(id) }
+
+    private fun save(update: suspend () -> Unit) {
+        viewModelScope.launch { persist(update) }
     }
 
-    private fun save(update: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
-        viewModelScope.launch {
-            try {
-                store.edit { update(it) }
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                messages.emit(R.string.save_error)
-            }
-        }
+    private suspend fun persist(update: suspend () -> Unit): Boolean = try {
+        update()
+        true
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        messages.emit(R.string.save_error)
+        false
     }
 }

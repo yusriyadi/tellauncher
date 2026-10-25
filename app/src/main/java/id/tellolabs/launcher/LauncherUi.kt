@@ -13,6 +13,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,6 +44,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,7 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class Screen { Home, Drawer, Settings, Hidden }
+private enum class Screen { Home, Drawer, Settings, Hidden, ShelfEditor }
 private val muted = Color(0xFF929292)
 
 @Composable
@@ -76,6 +79,7 @@ fun LauncherUi(
     defaultHome: Boolean,
     onDefaultHome: () -> Unit,
     onLaunch: (LauncherApp) -> Boolean,
+    onAppInfo: (LauncherApp) -> Unit,
     lockAccessibilityEnabled: Boolean,
     onAccessibilitySettings: () -> Unit,
     onLockScreen: () -> Unit,
@@ -84,19 +88,34 @@ fun LauncherUi(
     val apps by model.apps.collectAsStateWithLifecycle()
     val preferenceError by model.preferenceError.collectAsStateWithLifecycle()
     val appError by model.appError.collectAsStateWithLifecycle()
-    var screen by remember { mutableStateOf(Screen.Home) }
+    var screen by rememberSaveable { mutableStateOf(Screen.Home) }
+    var editingShelfId by rememberSaveable { mutableStateOf<String?>(null) }
+    var activateNewShelf by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
+    var hiddenQuery by rememberSaveable { mutableStateOf("") }
     var showAccessibilityDialog by rememberSaveable { mutableStateOf(false) }
     val lockSupported = Build.VERSION.SDK_INT >= 28
     val keyboard = LocalSoftwareKeyboardController.current
 
     fun home() { keyboard?.hide(); query = ""; screen = Screen.Home }
-    LaunchedEffect(homeRequest) { home() }
+    var handledHomeRequest by rememberSaveable { mutableIntStateOf(homeRequest) }
+    LaunchedEffect(homeRequest) {
+        if (homeRequest != handledHomeRequest) {
+            handledHomeRequest = homeRequest
+            home()
+        }
+    }
     BackHandler(enabled = screen != Screen.Home) {
-        if (screen == Screen.Hidden) screen = Screen.Settings else home()
+        if (screen == Screen.Hidden || screen == Screen.ShelfEditor) screen = Screen.Settings else home()
     }
     // Home is the root of the launcher task; Back must not reveal another activity.
     BackHandler(enabled = screen == Screen.Home) { }
+
+    fun editShelf(id: String?, activate: Boolean = false) {
+        editingShelfId = id
+        activateNewShelf = activate
+        screen = Screen.ShelfEditor
+    }
 
     Surface(Modifier.fillMaxSize(), color = Color.Black) {
         AnimatedContent(
@@ -117,12 +136,29 @@ fun LauncherUi(
                 )
                 Screen.Drawer -> {
                     val visibleApps = remember(apps, preferences, query) {
-                        apps.orEmpty().filter {
-                            it.packageName !in preferences?.hiddenPackages.orEmpty() &&
-                                it.label.contains(query.trim(), ignoreCase = true)
+                        val search = query.trim()
+                        apps.orEmpty().filter { app ->
+                            if (search.isEmpty()) {
+                                val prefs = preferences
+                                if (prefs?.customShelf == true && prefs.activeShelfId != ALL_APPS_SHELF_ID) {
+                                    app.packageName in prefs.activeShelf?.packages.orEmpty()
+                                } else {
+                                    app.packageName !in prefs?.hiddenPackages.orEmpty()
+                                }
+                            } else {
+                                app.label.contains(search, ignoreCase = true)
+                            }
                         }
                     }
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+                        val prefs = preferences
+                        if (prefs?.customShelf == true && prefs.shelves.isNotEmpty()) {
+                            DrawerShelfPicker(prefs) { id ->
+                                keyboard?.hide()
+                                query = ""
+                                model.setActiveShelf(id)
+                            }
+                        }
                         Box(Modifier.weight(1f).fillMaxWidth()) {
                             when {
                                 preferenceError -> EmptyMessage(R.string.preferences_error)
@@ -134,6 +170,8 @@ fun LauncherUi(
                                     showIcons = preferences?.listIcons == true,
                                     emptyMessage = if (query.isBlank()) R.string.no_apps else R.string.no_results,
                                     onLaunch = { if (onLaunch(it)) home() },
+                                    onHide = { model.setHidden(it.packageName, true) },
+                                    onAppInfo = { keyboard?.hide(); onAppInfo(it) },
                                     onSettings = { keyboard?.hide(); screen = Screen.Settings },
                                 )
                             }
@@ -171,10 +209,44 @@ fun LauncherUi(
                                 HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Color(0xFF202020))
                             }
                             item {
+                                ToggleSetting(
+                                    title = stringResource(R.string.custom_shelf),
+                                    subtitle = stringResource(R.string.custom_shelf_hint),
+                                    checked = prefs.customShelf,
+                                    onChange = { enabled ->
+                                        if (enabled && prefs.shelves.isEmpty()) editShelf(null, activate = true)
+                                        else model.setCustomShelf(enabled)
+                                    },
+                                )
+                            }
+                            if (prefs.customShelf) {
+                                item(key = "all_apps_shelf") {
+                                    ShelfSettingRow(
+                                        name = stringResource(R.string.all_apps),
+                                        selected = prefs.activeShelfId == ALL_APPS_SHELF_ID,
+                                        onSelect = { model.setActiveShelf(ALL_APPS_SHELF_ID) },
+                                    )
+                                }
+                                items(prefs.shelves, key = { "shelf_${it.id}" }) { shelf ->
+                                    ShelfSettingRow(
+                                        name = shelf.name,
+                                        selected = prefs.activeShelfId == shelf.id,
+                                        onSelect = { model.setActiveShelf(shelf.id) },
+                                        onEdit = { editShelf(shelf.id) },
+                                    )
+                                }
+                                item {
+                                    TextButton(onClick = { editShelf(null) }) {
+                                        Text(stringResource(R.string.add_shelf))
+                                    }
+                                }
+                            }
+                            item {
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Color(0xFF202020))
                                 SettingLink(
                                     stringResource(R.string.hidden_apps),
                                     stringResource(R.string.hidden_count, prefs.hiddenPackages.size),
-                                ) { screen = Screen.Hidden }
+                                ) { hiddenQuery = ""; screen = Screen.Hidden }
                                 Spacer(Modifier.height(8.dp))
                             }
                             item {
@@ -209,35 +281,54 @@ fun LauncherUi(
                         }
                     }
                 }
+                Screen.ShelfEditor -> if (preferences == null) {
+                    EmptyMessage(if (preferenceError) R.string.preferences_error else R.string.loading)
+                } else ShelfEditorScreen(
+                    initialShelf = preferences?.shelves?.find { it.id == editingShelfId },
+                    activateOnSave = activateNewShelf,
+                    apps = apps,
+                    appError = appError,
+                    onBack = { keyboard?.hide(); screen = Screen.Settings },
+                    onSave = { shelf, activate -> model.saveShelf(shelf, activate) },
+                    onDelete = { model.deleteShelf(it) },
+                )
                 Screen.Hidden -> Column(
-                    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
+                    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding(),
                 ) {
-                    PageHeader(R.string.hidden_apps) { screen = Screen.Settings }
+                    PageHeader(R.string.hidden_apps) { keyboard?.hide(); screen = Screen.Settings }
                     Text(
                         stringResource(R.string.hidden_hint), color = muted, fontSize = 13.sp,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     )
-                    when {
-                        preferenceError -> EmptyMessage(R.string.preferences_error)
-                        appError -> EmptyMessage(R.string.load_error)
-                        apps == null || preferences == null -> EmptyMessage(R.string.loading)
-                        else -> {
-                            val packages = remember(apps) { apps.orEmpty().distinctBy { it.packageName } }
-                            LazyColumn(
-                                modifier = Modifier.weight(1f).fillMaxWidth(),
-                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                            ) {
-                                items(packages, key = { it.packageName }) { app ->
-                                    ToggleSetting(
-                                        title = app.label,
-                                        checked = app.packageName in preferences!!.hiddenPackages,
-                                        onChange = { model.setHidden(app.packageName, it) },
-                                        leadingIcon = { AppIcon(app, Modifier.size(28.dp)) },
-                                    )
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        when {
+                            preferenceError -> EmptyMessage(R.string.preferences_error)
+                            appError -> EmptyMessage(R.string.load_error)
+                            apps == null || preferences == null -> EmptyMessage(R.string.loading)
+                            else -> {
+                                val packages = remember(apps, hiddenQuery) {
+                                    apps.orEmpty().distinctBy { it.packageName }
+                                        .filter { it.label.contains(hiddenQuery.trim(), ignoreCase = true) }
+                                }
+                                if (packages.isEmpty()) {
+                                    EmptyMessage(if (hiddenQuery.isBlank()) R.string.no_apps else R.string.no_results)
+                                } else LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                                ) {
+                                    items(packages, key = { it.packageName }) { app ->
+                                        ToggleSetting(
+                                            title = app.label,
+                                            checked = app.packageName in preferences!!.hiddenPackages,
+                                            onChange = { model.setHidden(app.packageName, it) },
+                                            leadingIcon = { AppIcon(app, Modifier.size(28.dp)) },
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                    SearchField(hiddenQuery, { hiddenQuery = it })
                 }
             }
         }
@@ -246,7 +337,7 @@ fun LauncherUi(
         AlertDialog(
             onDismissRequest = { showAccessibilityDialog = false },
             title = { Text(stringResource(R.string.accessibility_required)) },
-            text = { Text(stringResource(R.string.accessibility_required_message)) },
+            text = { Text(stringResource(R.string.accessibility_required_message, stringResource(R.string.lock_service_name))) },
             confirmButton = {
                 TextButton(onClick = {
                     showAccessibilityDialog = false
@@ -339,6 +430,8 @@ private fun AppCollection(
     showIcons: Boolean,
     emptyMessage: Int,
     onLaunch: (LauncherApp) -> Unit,
+    onHide: (LauncherApp) -> Unit,
+    onAppInfo: (LauncherApp) -> Unit,
     onSettings: () -> Unit,
 ) {
     if (grid) {
@@ -353,14 +446,16 @@ private fun AppCollection(
                 }
             }
             items(apps, key = { it.key }) { app ->
-                Column(
-                    Modifier.fillMaxWidth().clickable { onLaunch(app) }.padding(horizontal = 8.dp, vertical = 18.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    AppIcon(app, Modifier.size(40.dp))
-                    Spacer(Modifier.height(12.dp))
-                    Text(app.label, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                AppItemActions(app, onLaunch, onHide, onAppInfo) { interaction ->
+                    Column(
+                        Modifier.fillMaxWidth().then(interaction).padding(horizontal = 8.dp, vertical = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        AppIcon(app, Modifier.size(40.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text(app.label, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
                 }
             }
             item(key = "tellauncher_settings") {
@@ -386,16 +481,18 @@ private fun AppCollection(
                 }
             }
             items(apps, key = { it.key }) { app ->
-                Row(
-                    Modifier.fillMaxWidth().clickable { onLaunch(app) }
-                        .heightIn(min = 60.dp).padding(horizontal = 28.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (showIcons) {
-                        AppIcon(app, Modifier.size(28.dp))
-                        Spacer(Modifier.width(20.dp))
+                AppItemActions(app, onLaunch, onHide, onAppInfo) { interaction ->
+                    Row(
+                        Modifier.fillMaxWidth().then(interaction)
+                            .heightIn(min = 60.dp).padding(horizontal = 28.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (showIcons) {
+                            AppIcon(app, Modifier.size(28.dp))
+                            Spacer(Modifier.width(20.dp))
+                        }
+                        Text(app.label, fontSize = 18.sp, fontWeight = FontWeight.Normal)
                     }
-                    Text(app.label, fontSize = 18.sp, fontWeight = FontWeight.Normal)
                 }
             }
             item(key = "tellauncher_settings") {
@@ -417,7 +514,35 @@ private fun AppCollection(
 }
 
 @Composable
-private fun AppIcon(app: LauncherApp, modifier: Modifier) {
+private fun AppItemActions(
+    app: LauncherApp,
+    onLaunch: (LauncherApp) -> Unit,
+    onHide: (LauncherApp) -> Unit,
+    onAppInfo: (LauncherApp) -> Unit,
+    content: @Composable (Modifier) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        content(Modifier.combinedClickable(
+            onClick = { onLaunch(app) },
+            onLongClickLabel = stringResource(R.string.app_actions),
+            onLongClick = { expanded = true },
+        ))
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.hide_app)) },
+                onClick = { expanded = false; onHide(app) },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.app_info)) },
+                onClick = { expanded = false; onAppInfo(app) },
+            )
+        }
+    }
+}
+
+@Composable
+internal fun AppIcon(app: LauncherApp, modifier: Modifier) {
     val context = LocalContext.current
     val pixels = with(LocalDensity.current) { 48.dp.roundToPx() }
     val bitmap by produceState<ImageBitmap?>(null, app, pixels) {
@@ -433,17 +558,18 @@ private fun AppIcon(app: LauncherApp, modifier: Modifier) {
 }
 
 @Composable
-private fun SearchField(query: String, onQuery: (String) -> Unit) {
+internal fun SearchField(query: String, onQuery: (String) -> Unit, enabled: Boolean = true) {
     val clearLabel = stringResource(R.string.clear_search)
     OutlinedTextField(
         value = query,
         onValueChange = onQuery,
+        enabled = enabled,
         singleLine = true,
         placeholder = { Text(stringResource(R.string.search_apps), fontSize = 15.sp) },
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
         shape = RoundedCornerShape(16.dp),
         trailingIcon = if (query.isNotEmpty()) {
-            { IconButton(onClick = { onQuery("") }) {
+            { IconButton(onClick = { onQuery("") }, enabled = enabled) {
                 Text("×", fontSize = 24.sp, modifier = Modifier.semantics {
                     contentDescription = clearLabel
                 })
@@ -453,7 +579,7 @@ private fun SearchField(query: String, onQuery: (String) -> Unit) {
 }
 
 @Composable
-private fun PageHeader(title: Int, onBack: () -> Unit) {
+internal fun PageHeader(title: Int, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         val backLabel = stringResource(R.string.back)
@@ -466,7 +592,7 @@ private fun PageHeader(title: Int, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ToggleSetting(
+internal fun ToggleSetting(
     title: String,
     checked: Boolean,
     onChange: (Boolean) -> Unit,
@@ -502,8 +628,55 @@ private fun SettingLink(title: String, subtitle: String, enabled: Boolean = true
 }
 
 @Composable
-private fun EmptyMessage(message: Int) {
+internal fun EmptyMessage(message: Int) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Text(stringResource(message), color = muted, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun ShelfSettingRow(name: String, selected: Boolean, onSelect: () -> Unit, onEdit: (() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(48.dp).selectable(
+            selected = selected,
+            role = androidx.compose.ui.semantics.Role.RadioButton,
+            onClick = onSelect,
+        ).semantics { contentDescription = name }, contentAlignment = Alignment.Center) {
+            RadioButton(selected = selected, onClick = null)
+        }
+        Row(Modifier.weight(1f).clickable(onClick = onEdit ?: onSelect).heightIn(min = 48.dp)
+            .padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(name, modifier = Modifier.weight(1f), fontSize = 16.sp)
+            if (onEdit != null) {
+                Text(stringResource(R.string.edit), color = muted, fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrawerShelfPicker(preferences: LauncherPreferences, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val allApps = stringResource(R.string.all_apps)
+    val options = listOf(ALL_APPS_SHELF_ID to allApps) + preferences.shelves.map { it.id to it.name }
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        TextButton(onClick = { expanded = true }) {
+            Text(preferences.activeShelf?.name ?: allApps, fontSize = 13.sp, color = muted,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Spacer(Modifier.width(8.dp))
+            Text("▾", color = muted)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (id, name) ->
+                val active = preferences.activeShelfId == id
+                DropdownMenuItem(
+                    modifier = Modifier.semantics { selected = active },
+                    text = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingIcon = { RadioButton(selected = active, onClick = null) },
+                    onClick = { expanded = false; onSelect(id) },
+                )
+            }
+        }
     }
 }
