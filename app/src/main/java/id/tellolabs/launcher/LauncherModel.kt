@@ -89,6 +89,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
     fun setHidden(packageName: String, hidden: Boolean) = save { repository.setHidden(packageName, hidden) }
     fun setCustomShelf(enabled: Boolean) = save { repository.setCustomShelf(enabled) }
     fun setActiveShelf(id: String) = save { repository.setActiveShelf(id) }
+    fun removeFromShelf(shelfId: String, packageName: String) = save { repository.removeFromShelf(shelfId, packageName) }
     suspend fun saveShelf(shelf: Shelf, activate: Boolean): Boolean = persist { repository.saveShelf(shelf, activate) }
     suspend fun deleteShelf(id: String): Boolean = persist { repository.deleteShelf(id) }
 

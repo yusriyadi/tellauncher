@@ -183,7 +183,11 @@ fun LauncherUi(
                                     showSettings = preferences?.showLauncherSettings != false,
                                     emptyMessage = if (query.isBlank()) R.string.no_apps else R.string.no_results,
                                     onLaunch = { app -> keyboard?.hide(); onLaunch(app) { home() } },
-                                    onHide = { model.setHidden(it.packageName, true) },
+                                    onHide = { app ->
+                                        val shelf = if (prefs?.customShelf == true) prefs.activeShelf else null
+                                        if (shelf != null) model.removeFromShelf(shelf.id, app.packageName)
+                                        else model.setHidden(app.packageName, true)
+                                    },
                                     onAppInfo = { keyboard?.hide(); onAppInfo(it) },
                                     onSettings = { keyboard?.hide(); screen = Screen.Settings },
                                 )

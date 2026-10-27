@@ -128,6 +128,17 @@ class LauncherPreferencesRepository(context: Context) {
         }
     }
 
+    suspend fun removeFromShelf(shelfId: String, packageName: String) {
+        store.edit {
+            val shelves = decodeShelves(it[shelvesKey]).map { shelf ->
+                if (shelf.id == shelfId) shelf.copy(packages = shelf.packages - packageName)
+                else shelf
+            }
+            // Only shelf membership changes; global Hidden apps and other shelves stay intact.
+            it[shelvesKey] = encodeShelves(shelves)
+        }
+    }
+
     suspend fun deleteShelf(id: String) {
         store.edit {
             val shelves = decodeShelves(it[shelvesKey]).filterNot { shelf -> shelf.id == id }
