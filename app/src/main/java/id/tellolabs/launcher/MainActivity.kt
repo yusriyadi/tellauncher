@@ -12,7 +12,7 @@ import android.provider.Settings
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,11 +28,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private val model: LauncherModel by viewModels()
     private var homeRequest by mutableIntStateOf(0)
     private var isDefaultHome by mutableStateOf(false)
     private var lockAccessibilityEnabled by mutableStateOf(false)
+    private lateinit var appAuthenticator: AppAuthenticator
+    private var authenticationSettingsUnlocked by mutableStateOf(false)
     private val defaultHomeRequest = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         updateDefaultHome()
     }
@@ -42,6 +44,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        appAuthenticator = AppAuthenticator(this)
         homeRequest = savedInstanceState?.getInt("home_request") ?: 0
         enableEdgeToEdge()
         ContextCompat.registerReceiver(
@@ -66,7 +69,16 @@ class MainActivity : ComponentActivity() {
                     homeRequest = homeRequest,
                     defaultHome = isDefaultHome,
                     onDefaultHome = ::requestDefaultHome,
-                    onLaunch = ::launchApp,
+                    onLaunch = ::requestAppLaunch,
+                    authenticationSettingsUnlocked = authenticationSettingsUnlocked,
+                    onAuthenticate = { action -> appAuthenticator.authenticate(action) },
+                    onUnlockAuthenticationSettings = { action ->
+                        appAuthenticator.authenticate {
+                            authenticationSettingsUnlocked = true
+                            action()
+                        }
+                    },
+                    onLockAuthenticationSettings = { authenticationSettingsUnlocked = false },
                     onAppInfo = ::openAppInfo,
                     onOpenAlarm = {
                         openHomeShortcut(listOf(Intent(AlarmClock.ACTION_SHOW_ALARMS)), R.string.alarm_error)
@@ -111,6 +123,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        appAuthenticator.cancel()
+        authenticationSettingsUnlocked = false
         setIntent(intent)
         homeRequest++
     }
@@ -121,8 +135,30 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        appAuthenticator.cancel()
         unregisterReceiver(packageReceiver)
         super.onDestroy()
+    }
+
+    override fun onStop() {
+        // Editing sessions end in the background. Legacy credential confirmation may stop us.
+        authenticationSettingsUnlocked = false
+        appAuthenticator.onHostStopped()
+        super.onStop()
+    }
+
+    private fun requestAppLaunch(app: LauncherApp, onOpened: () -> Unit) {
+        val preferences = model.preferences.value
+        if (preferences == null) {
+            Toast.makeText(this, R.string.preferences_error, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val open = { if (launchApp(app)) onOpened() }
+        if (preferences.appAuthentication && app.packageName in preferences.protectedPackages) {
+            appAuthenticator.authenticate(open)
+        } else {
+            open()
+        }
     }
 
     private fun launchApp(app: LauncherApp): Boolean = try {

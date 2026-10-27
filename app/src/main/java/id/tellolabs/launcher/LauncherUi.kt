@@ -63,7 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class Screen { Home, Drawer, Settings, Hidden, ShelfEditor }
+private enum class Screen { Home, Drawer, Settings, Hidden, ShelfEditor, ProtectedApps }
 
 @Composable
 fun LauncherUi(
@@ -71,7 +71,11 @@ fun LauncherUi(
     homeRequest: Int,
     defaultHome: Boolean,
     onDefaultHome: () -> Unit,
-    onLaunch: (LauncherApp) -> Boolean,
+    onLaunch: (LauncherApp, () -> Unit) -> Unit,
+    authenticationSettingsUnlocked: Boolean,
+    onAuthenticate: (() -> Unit) -> Unit,
+    onUnlockAuthenticationSettings: (() -> Unit) -> Unit,
+    onLockAuthenticationSettings: () -> Unit,
     onAppInfo: (LauncherApp) -> Unit,
     onOpenAlarm: () -> Unit,
     onOpenCalendar: () -> Unit,
@@ -88,11 +92,15 @@ fun LauncherUi(
     var activateNewShelf by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var hiddenQuery by rememberSaveable { mutableStateOf("") }
+    var protectedQuery by rememberSaveable { mutableStateOf("") }
     var showAccessibilityDialog by rememberSaveable { mutableStateOf(false) }
     val lockSupported = Build.VERSION.SDK_INT >= 28
     val keyboard = LocalSoftwareKeyboardController.current
 
-    fun home() { keyboard?.hide(); query = ""; screen = Screen.Home }
+    fun home() { keyboard?.hide(); onLockAuthenticationSettings(); query = ""; screen = Screen.Home }
+    LaunchedEffect(authenticationSettingsUnlocked) {
+        if (!authenticationSettingsUnlocked && screen == Screen.ProtectedApps) screen = Screen.Settings
+    }
     var handledHomeRequest by rememberSaveable { mutableIntStateOf(homeRequest) }
     LaunchedEffect(homeRequest) {
         if (homeRequest != handledHomeRequest) {
@@ -101,7 +109,11 @@ fun LauncherUi(
         }
     }
     BackHandler(enabled = screen != Screen.Home) {
-        if (screen == Screen.Hidden || screen == Screen.ShelfEditor) screen = Screen.Settings else home()
+        if (screen == Screen.Hidden || screen == Screen.ShelfEditor || screen == Screen.ProtectedApps) {
+            keyboard?.hide()
+            onLockAuthenticationSettings()
+            screen = Screen.Settings
+        } else home()
     }
     // Home is the root of the launcher task; Back must not reveal another activity.
     BackHandler(enabled = screen == Screen.Home) { }
@@ -170,7 +182,7 @@ fun LauncherUi(
                                     showIcons = preferences?.listIcons == true,
                                     showSettings = preferences?.showLauncherSettings != false,
                                     emptyMessage = if (query.isBlank()) R.string.no_apps else R.string.no_results,
-                                    onLaunch = { if (onLaunch(it)) home() },
+                                    onLaunch = { app -> keyboard?.hide(); onLaunch(app) { home() } },
                                     onHide = { model.setHidden(it.packageName, true) },
                                     onAppInfo = { keyboard?.hide(); onAppInfo(it) },
                                     onSettings = { keyboard?.hide(); screen = Screen.Settings },
@@ -281,6 +293,28 @@ fun LauncherUi(
                             }
                             item {
                                 ToggleSetting(
+                                    title = stringResource(R.string.app_authentication),
+                                    subtitle = stringResource(R.string.app_authentication_hint),
+                                    checked = prefs.appAuthentication,
+                                    onChange = { enabled ->
+                                        onAuthenticate { model.setAppAuthentication(enabled) }
+                                    },
+                                )
+                                if (prefs.appAuthentication) {
+                                    SettingLink(
+                                        stringResource(R.string.protected_apps),
+                                        stringResource(R.string.protected_count, prefs.protectedPackages.size),
+                                    ) {
+                                        onUnlockAuthenticationSettings {
+                                            protectedQuery = ""
+                                            screen = Screen.ProtectedApps
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            item {
+                                ToggleSetting(
                                     title = stringResource(R.string.double_tap_lock),
                                     subtitle = stringResource(
                                         if (lockSupported) R.string.double_tap_lock_hint
@@ -322,6 +356,50 @@ fun LauncherUi(
                     onSave = { shelf, activate -> model.saveShelf(shelf, activate) },
                     onDelete = { model.deleteShelf(it) },
                 )
+                Screen.ProtectedApps -> Column(
+                    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding(),
+                ) {
+                    PageHeader(R.string.protected_apps) {
+                        keyboard?.hide()
+                        onLockAuthenticationSettings()
+                        screen = Screen.Settings
+                    }
+                    Text(stringResource(R.string.protected_apps_hint),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        when {
+                            !authenticationSettingsUnlocked -> EmptyMessage(R.string.authentication_required)
+                            preferenceError -> EmptyMessage(R.string.preferences_error)
+                            appError -> EmptyMessage(R.string.load_error)
+                            apps == null || preferences == null -> EmptyMessage(R.string.loading)
+                            else -> {
+                                val packages = remember(apps, protectedQuery) {
+                                    apps.orEmpty().distinctBy { it.packageName }
+                                        .filter { it.label.contains(protectedQuery.trim(), ignoreCase = true) }
+                                }
+                                if (packages.isEmpty()) {
+                                    EmptyMessage(if (protectedQuery.isBlank()) R.string.no_apps else R.string.no_results)
+                                } else LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                                ) {
+                                    items(packages, key = { it.packageName }) { app ->
+                                        ToggleSetting(
+                                            title = app.label,
+                                            checked = app.packageName in preferences!!.protectedPackages,
+                                            onChange = {
+                                                if (authenticationSettingsUnlocked) model.setProtected(app.packageName, it)
+                                            },
+                                            leadingIcon = { AppIcon(app, Modifier.size(28.dp)) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    SearchField(protectedQuery, { protectedQuery = it }, enabled = authenticationSettingsUnlocked)
+                }
                 Screen.Hidden -> Column(
                     Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding(),
                 ) {

@@ -19,6 +19,8 @@ private val showSecondsKey = booleanPreferencesKey("show_seconds")
 private val showDrawerKey = booleanPreferencesKey("show_drawer")
 private val showLauncherSettingsKey = booleanPreferencesKey("show_launcher_settings_in_drawer")
 private val themeModeKey = stringPreferencesKey("theme_mode")
+private val appAuthenticationKey = booleanPreferencesKey("app_authentication")
+private val protectedPackagesKey = stringSetPreferencesKey("protected_packages")
 private val shelvesKey = stringPreferencesKey("shelves")
 private val customShelfKey = booleanPreferencesKey("custom_shelf_enabled")
 private val activeShelfKey = stringPreferencesKey("active_shelf_id")
@@ -35,6 +37,8 @@ data class LauncherPreferences(
     val showDrawer: Boolean = false,
     val showLauncherSettings: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val appAuthentication: Boolean = false,
+    val protectedPackages: Set<String> = emptySet(),
     val shelves: List<Shelf> = emptyList(),
     val customShelf: Boolean = false,
     val activeShelfId: String? = null,
@@ -57,6 +61,8 @@ class LauncherPreferencesRepository(context: Context) {
             showDrawer = values[showDrawerKey] ?: false,
             showLauncherSettings = values[showLauncherSettingsKey] ?: true,
             themeMode = ThemeMode.entries.find { it.storageValue == values[themeModeKey] } ?: ThemeMode.SYSTEM,
+            appAuthentication = values[appAuthenticationKey] ?: false,
+            protectedPackages = values[protectedPackagesKey].orEmpty(),
             shelves = shelves,
             customShelf = values[customShelfKey] == true && shelves.isNotEmpty(),
             activeShelfId = values[activeShelfKey]?.takeIf { id ->
@@ -73,6 +79,13 @@ class LauncherPreferencesRepository(context: Context) {
     suspend fun setShowDrawer(value: Boolean) { store.edit { it[showDrawerKey] = value } }
     suspend fun setShowLauncherSettings(value: Boolean) { store.edit { it[showLauncherSettingsKey] = value } }
     suspend fun setThemeMode(value: ThemeMode) { store.edit { it[themeModeKey] = value.storageValue } }
+    suspend fun setAppAuthentication(value: Boolean) { store.edit { it[appAuthenticationKey] = value } }
+    suspend fun setProtected(packageName: String, protected: Boolean) {
+        store.edit {
+            val packages = it[protectedPackagesKey].orEmpty()
+            it[protectedPackagesKey] = if (protected) packages + packageName else packages - packageName
+        }
+    }
     suspend fun setHidden(packageName: String, hidden: Boolean) {
         store.edit {
             val packages = it[hiddenKey].orEmpty()

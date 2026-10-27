@@ -1,11 +1,12 @@
 <resources>
-    <style name="Theme.Tellauncher" parent="android:style/Theme.Material.NoActionBar">
+    <style name="Theme.Tellauncher" parent="Theme.AppCompat.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">@bool/launcher_light_system_bars</item>
         <item name="android:windowLightNavigationBar">@bool/launcher_light_system_bars</item>
         <item name="android:windowBackground">@color/launcher_background</item>
         <item name="android:colorBackground">@color/launcher_background</item>
         <item name="android:colorAccent">@color/launcher_accent</item>
+        <item name="colorAccent">@color/launcher_accent</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>
