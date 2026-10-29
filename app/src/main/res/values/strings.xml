@@ -83,4 +83,26 @@
     <string name="delete_shelf_message">Delete “%1$s”? Apps will remain installed. If this is the active shelf, another shelf will be selected. Deleting the last shelf turns Custom shelf off.</string>
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
+    <string name="backup_restore">Backup &amp; restore</string>
+    <string name="backup_export">Export settings</string>
+    <string name="backup_export_hint">Save a JSON backup of all settings and shelves</string>
+    <string name="backup_import">Import settings</string>
+    <string name="backup_import_hint">Choose a JSON backup to replace current settings</string>
+    <string name="backup_working">Working…</string>
+    <string name="backup_replace_title">Replace settings?</string>
+    <string name="backup_replace_message">This backup contains:
+\nShelves: %1$d
+\nHidden apps: %2$d
+\nProtected apps: %3$d
+\n\nAll current settings will be replaced. Apps that are not installed will remain in your saved selections.
+\n\nApp authentication will be OFF after import. Enable it again to verify with this device. Accessibility access and your default launcher must be configured on this device.</string>
+    <string name="backup_replace">Replace settings</string>
+    <string name="backup_export_success">Settings exported</string>
+    <string name="backup_import_success">Settings imported. App authentication is OFF; enable it again if needed.</string>
+    <string name="backup_export_error">Unable to export settings. Please try again.</string>
+    <string name="backup_read_error">Unable to read this file. Settings have not changed.</string>
+    <string name="backup_import_error">Unable to import settings. Please try again.</string>
+    <string name="backup_invalid">This is not a valid settings backup, or the file exceeds 1 MB. Settings have not changed.</string>
+    <string name="backup_unsupported">This backup format is not supported by this version of Tellauncher. Settings have not changed.</string>
+    <string name="backup_picker_error">Unable to open the system file picker</string>
 </resources>

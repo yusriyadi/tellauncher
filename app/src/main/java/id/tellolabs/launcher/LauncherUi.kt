@@ -68,6 +68,10 @@ private enum class Screen { Home, Drawer, Settings, Hidden, ShelfEditor, Protect
 @Composable
 fun LauncherUi(
     model: LauncherModel,
+    backupModel: SettingsBackupModel,
+    onExportSettings: () -> Unit,
+    onImportSettings: () -> Unit,
+    onConfirmImport: () -> Unit,
     homeRequest: Int,
     defaultHome: Boolean,
     onDefaultHome: () -> Unit,
@@ -87,6 +91,8 @@ fun LauncherUi(
     val apps by model.apps.collectAsStateWithLifecycle()
     val preferenceError by model.preferenceError.collectAsStateWithLifecycle()
     val appError by model.appError.collectAsStateWithLifecycle()
+    val backupBusy by backupModel.busy.collectAsStateWithLifecycle()
+    val pendingImport by backupModel.pendingImport.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf(Screen.Home) }
     var editingShelfId by rememberSaveable { mutableStateOf<String?>(null) }
     var activateNewShelf by rememberSaveable { mutableStateOf(false) }
@@ -339,6 +345,22 @@ fun LauncherUi(
                                 Spacer(Modifier.height(8.dp))
                             }
                             item {
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant)
+                                Text(stringResource(R.string.backup_restore),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                                    modifier = Modifier.padding(vertical = 8.dp))
+                                SettingLink(stringResource(R.string.backup_export),
+                                    stringResource(R.string.backup_export_hint), enabled = !backupBusy,
+                                    onClick = onExportSettings)
+                                SettingLink(stringResource(R.string.backup_import),
+                                    stringResource(R.string.backup_import_hint), enabled = !backupBusy,
+                                    onClick = onImportSettings)
+                                if (backupBusy) Text(stringResource(R.string.backup_working),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            item {
                                 SettingLink(
                                     stringResource(if (defaultHome) R.string.default_active else R.string.default_launcher),
                                     stringResource(R.string.default_hint),
@@ -444,6 +466,9 @@ fun LauncherUi(
                 }
             }
         }
+    }
+    pendingImport?.let { backup ->
+        SettingsImportDialog(backup, backupBusy, onConfirmImport, backupModel::discardImport)
     }
     if (showAccessibilityDialog) {
         AlertDialog(

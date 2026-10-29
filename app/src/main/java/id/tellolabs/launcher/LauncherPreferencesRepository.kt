@@ -152,6 +152,28 @@ class LauncherPreferencesRepository(context: Context) {
             }
         }
     }
+
+    /** A validated backup replaces all settings atomically; no partially restored state is emitted. */
+    suspend fun replaceSettings(settings: LauncherPreferences) {
+        val shelves = encodeShelves(settings.shelves)
+        store.edit {
+            it.clear()
+            it[gridKey] = settings.grid
+            it[iconsKey] = settings.listIcons
+            it[hiddenKey] = settings.hiddenPackages
+            it[doubleTapLockKey] = settings.doubleTapLock
+            it[showSecondsKey] = settings.showSeconds
+            it[showDrawerKey] = settings.showDrawer
+            it[showLauncherSettingsKey] = settings.showLauncherSettings
+            it[themeModeKey] = settings.themeMode.storageValue
+            it[protectedPackagesKey] = settings.protectedPackages
+            // Imported protection must be explicitly enabled with local device authentication.
+            it[appAuthenticationKey] = false
+            it[shelvesKey] = shelves
+            it[customShelfKey] = settings.customShelf
+            settings.activeShelfId?.let { id -> it[activeShelfKey] = id }
+        }
+    }
 }
 
 private fun decodeShelves(json: String?): List<Shelf> {

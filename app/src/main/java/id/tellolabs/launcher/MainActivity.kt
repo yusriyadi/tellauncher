@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
     private val model: LauncherModel by viewModels()
+    private val backupModel: SettingsBackupModel by viewModels()
     private var homeRequest by mutableIntStateOf(0)
     private var isDefaultHome by mutableStateOf(false)
     private var lockAccessibilityEnabled by mutableStateOf(false)
@@ -37,6 +38,13 @@ class MainActivity : FragmentActivity() {
     private var authenticationSettingsUnlocked by mutableStateOf(false)
     private val defaultHomeRequest = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         updateDefaultHome()
+    }
+    private val exportDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) backupModel.discardExport()
+        else lifecycleScope.launch { backupModel.writeExport(uri) }
+    }
+    private val importDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) lifecycleScope.launch { backupModel.readImport(uri) }
     }
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { model.refreshApps() }
@@ -58,7 +66,8 @@ class MainActivity : FragmentActivity() {
         )
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                model.errors.collect { Toast.makeText(this@MainActivity, it, Toast.LENGTH_SHORT).show() }
+                launch { model.errors.collect { Toast.makeText(this@MainActivity, it, Toast.LENGTH_SHORT).show() } }
+                launch { backupModel.events.collect { Toast.makeText(this@MainActivity, it, Toast.LENGTH_LONG).show() } }
             }
         }
         setContent {
@@ -66,6 +75,10 @@ class MainActivity : FragmentActivity() {
             LauncherTheme(mode = preferences?.themeMode ?: ThemeMode.SYSTEM) {
                 LauncherUi(
                     model = model,
+                    backupModel = backupModel,
+                    onExportSettings = ::requestExportSettings,
+                    onImportSettings = ::requestImportSettings,
+                    onConfirmImport = ::confirmSettingsImport,
                     homeRequest = homeRequest,
                     defaultHome = isDefaultHome,
                     onDefaultHome = ::requestDefaultHome,
@@ -124,6 +137,7 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         appAuthenticator.cancel()
+        backupModel.discardImport()
         authenticationSettingsUnlocked = false
         setIntent(intent)
         homeRequest++
@@ -158,6 +172,52 @@ class MainActivity : FragmentActivity() {
             appAuthenticator.authenticate(open)
         } else {
             open()
+        }
+    }
+
+    private fun withSettingsAuthentication(action: () -> Unit) {
+        val preferences = model.preferences.value
+        if (preferences == null) {
+            Toast.makeText(this, R.string.preferences_error, Toast.LENGTH_SHORT).show()
+        } else if (preferences.appAuthentication) appAuthenticator.authenticate(action)
+        else action()
+    }
+
+    private fun requestExportSettings() {
+        if (backupModel.busy.value) return
+        withSettingsAuthentication {
+            lifecycleScope.launch {
+                if (!backupModel.prepareExport()) return@launch
+                if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    backupModel.discardExport()
+                    return@launch
+                }
+                try {
+                    exportDocument.launch("tellauncher-settings.json")
+                } catch (_: RuntimeException) {
+                    backupModel.discardExport()
+                    Toast.makeText(this@MainActivity, R.string.backup_picker_error, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun requestImportSettings() {
+        if (backupModel.busy.value) return
+        try {
+            importDocument.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+        } catch (_: RuntimeException) {
+            Toast.makeText(this, R.string.backup_picker_error, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun confirmSettingsImport() {
+        if (backupModel.busy.value || backupModel.pendingImport.value == null) return
+        // Check the CURRENT device's protection; never trust the flag in an imported file.
+        withSettingsAuthentication {
+            lifecycleScope.launch {
+                if (backupModel.applyImport()) authenticationSettingsUnlocked = false
+            }
         }
     }
 
