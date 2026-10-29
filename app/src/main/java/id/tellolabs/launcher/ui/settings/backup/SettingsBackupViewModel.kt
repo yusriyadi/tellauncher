@@ -1,15 +1,21 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.ui.settings.backup
 
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
+import id.tellolabs.launcher.R
+import id.tellolabs.launcher.data.backup.InvalidSettingsBackupException
+import id.tellolabs.launcher.data.backup.SettingsBackup
+import id.tellolabs.launcher.data.backup.SettingsBackupRepository
+import id.tellolabs.launcher.data.backup.UnsupportedSettingsBackupException
+import id.tellolabs.launcher.data.preferences.LauncherPreferencesRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class SettingsBackupModel(application: Application) : AndroidViewModel(application) {
+class SettingsBackupViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = SettingsBackupRepository(application, LauncherPreferencesRepository(application))
     private val messages = MutableSharedFlow<Int>(extraBufferCapacity = 8)
     val events = messages.asSharedFlow()
