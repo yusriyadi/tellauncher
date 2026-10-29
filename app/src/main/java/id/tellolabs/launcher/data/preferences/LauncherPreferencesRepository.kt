@@ -1,4 +1,4 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.data.preferences
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import id.tellolabs.launcher.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject

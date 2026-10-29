@@ -1,4 +1,4 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,6 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import id.tellolabs.launcher.R
+import id.tellolabs.launcher.model.LauncherApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

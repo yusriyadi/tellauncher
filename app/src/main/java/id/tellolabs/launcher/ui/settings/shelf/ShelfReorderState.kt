@@ -1,4 +1,4 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.ui.settings.shelf
 
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyListState
@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
+import id.tellolabs.launcher.data.preferences.Shelf
 import kotlin.math.abs
 
 /** Keeps drag previews in memory and saves only the final order on drop. */

@@ -1,12 +1,12 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.ui
 
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,13 +15,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import id.tellolabs.launcher.R
+import id.tellolabs.launcher.model.LauncherApp
+import id.tellolabs.launcher.ui.components.EmptyMessage
+import id.tellolabs.launcher.ui.drawer.DrawerScreen
+import id.tellolabs.launcher.ui.home.HomeScreen
+import id.tellolabs.launcher.ui.settings.HiddenAppsScreen
+import id.tellolabs.launcher.ui.settings.ProtectedAppsScreen
+import id.tellolabs.launcher.ui.settings.SettingsScreen
+import id.tellolabs.launcher.ui.settings.SettingsViewModel
+import id.tellolabs.launcher.ui.settings.backup.SettingsBackupViewModel
+import id.tellolabs.launcher.ui.settings.backup.SettingsImportDialog
+import id.tellolabs.launcher.ui.settings.shelf.ShelfEditorScreen
 
 private enum class Screen { Home, Drawer, Settings, Hidden, ShelfEditor, ProtectedApps }
 
 @Composable
 fun LauncherUi(
-    model: LauncherModel,
-    backupModel: SettingsBackupModel,
+    model: LauncherViewModel,
+    settingsModel: SettingsViewModel,
+    backupModel: SettingsBackupViewModel,
     onExportSettings: () -> Unit,
     onImportSettings: () -> Unit,
     onConfirmImport: () -> Unit,
@@ -40,9 +53,9 @@ fun LauncherUi(
     onAccessibilitySettings: () -> Unit,
     onLockScreen: () -> Unit,
 ) {
-    val preferences by model.preferences.collectAsStateWithLifecycle()
+    val preferences by settingsModel.preferences.collectAsStateWithLifecycle()
     val apps by model.apps.collectAsStateWithLifecycle()
-    val preferenceError by model.preferenceError.collectAsStateWithLifecycle()
+    val preferenceError by settingsModel.preferenceError.collectAsStateWithLifecycle()
     val appError by model.appError.collectAsStateWithLifecycle()
     val backupBusy by backupModel.busy.collectAsStateWithLifecycle()
     val pendingImport by backupModel.pendingImport.collectAsStateWithLifecycle()
@@ -119,7 +132,7 @@ fun LauncherUi(
                     onSettings = { screen = Screen.Settings },
                 )
                 Screen.Settings -> SettingsScreen(
-                    model = model,
+                    model = settingsModel,
                     preferences = preferences,
                     preferenceError = preferenceError,
                     defaultHome = defaultHome,
@@ -145,11 +158,11 @@ fun LauncherUi(
                     apps = apps,
                     appError = appError,
                     onBack = { keyboard?.hide(); screen = Screen.Settings },
-                    onSave = { shelf, activate -> model.saveShelf(shelf, activate) },
-                    onDelete = { model.deleteShelf(it) },
+                    onSave = { shelf, activate -> settingsModel.saveShelf(shelf, activate) },
+                    onDelete = { settingsModel.deleteShelf(it) },
                 )
                 Screen.ProtectedApps -> ProtectedAppsScreen(
-                    model = model,
+                    model = settingsModel,
                     preferences = preferences,
                     apps = apps,
                     preferenceError = preferenceError,
@@ -161,7 +174,7 @@ fun LauncherUi(
                     onBack = { screen = Screen.Settings },
                 )
                 Screen.Hidden -> HiddenAppsScreen(
-                    model = model,
+                    model = settingsModel,
                     preferences = preferences,
                     apps = apps,
                     preferenceError = preferenceError,

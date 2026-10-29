@@ -1,4 +1,4 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -12,19 +12,28 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.tellolabs.launcher.R
+import id.tellolabs.launcher.data.preferences.ALL_APPS_SHELF_ID
+import id.tellolabs.launcher.data.preferences.LauncherPreferences
+import id.tellolabs.launcher.ui.components.EmptyMessage
+import id.tellolabs.launcher.ui.components.PageHeader
+import id.tellolabs.launcher.ui.components.SettingLink
+import id.tellolabs.launcher.ui.components.ToggleSetting
+import id.tellolabs.launcher.ui.settings.shelf.rememberShelfReorderState
+import id.tellolabs.launcher.ui.settings.shelf.shelfDragOffset
 import kotlinx.coroutines.launch
 
 @Composable
 internal fun SettingsScreen(
-    model: LauncherModel,
+    model: SettingsViewModel,
     preferences: LauncherPreferences?,
     preferenceError: Boolean,
     defaultHome: Boolean,

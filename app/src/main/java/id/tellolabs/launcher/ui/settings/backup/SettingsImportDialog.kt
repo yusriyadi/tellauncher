@@ -1,4 +1,4 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.ui.settings.backup
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -6,6 +6,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import id.tellolabs.launcher.R
+import id.tellolabs.launcher.data.backup.SettingsBackup
 
 @Composable
 internal fun SettingsImportDialog(backup: SettingsBackup, busy: Boolean, onConfirm: () -> Unit, onCancel: () -> Unit) {

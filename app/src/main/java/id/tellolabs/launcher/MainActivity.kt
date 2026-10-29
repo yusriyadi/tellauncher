@@ -5,32 +5,41 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.net.Uri
-import android.provider.Settings
 import android.provider.AlarmClock
 import android.provider.CalendarContract
+import android.provider.Settings
 import android.widget.Toast
-import androidx.fragment.app.FragmentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import id.tellolabs.launcher.model.LauncherApp
+import id.tellolabs.launcher.security.AppAuthenticator
+import id.tellolabs.launcher.ui.LauncherUi
+import id.tellolabs.launcher.ui.LauncherViewModel
+import id.tellolabs.launcher.ui.settings.SettingsViewModel
+import id.tellolabs.launcher.ui.settings.backup.SettingsBackupViewModel
+import id.tellolabs.launcher.ui.theme.LauncherTheme
+import id.tellolabs.launcher.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
-    private val model: LauncherModel by viewModels()
-    private val backupModel: SettingsBackupModel by viewModels()
+    private val model: LauncherViewModel by viewModels()
+    private val settingsModel: SettingsViewModel by viewModels()
+    private val backupModel: SettingsBackupViewModel by viewModels()
     private var homeRequest by mutableIntStateOf(0)
     private var isDefaultHome by mutableStateOf(false)
     private var lockAccessibilityEnabled by mutableStateOf(false)
@@ -67,14 +76,16 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { model.errors.collect { Toast.makeText(this@MainActivity, it, Toast.LENGTH_SHORT).show() } }
+                launch { settingsModel.errors.collect { Toast.makeText(this@MainActivity, it, Toast.LENGTH_SHORT).show() } }
                 launch { backupModel.events.collect { Toast.makeText(this@MainActivity, it, Toast.LENGTH_LONG).show() } }
             }
         }
         setContent {
-            val preferences by model.preferences.collectAsStateWithLifecycle()
+            val preferences by settingsModel.preferences.collectAsStateWithLifecycle()
             LauncherTheme(mode = preferences?.themeMode ?: ThemeMode.SYSTEM) {
                 LauncherUi(
                     model = model,
+                    settingsModel = settingsModel,
                     backupModel = backupModel,
                     onExportSettings = ::requestExportSettings,
                     onImportSettings = ::requestImportSettings,
@@ -162,7 +173,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun requestAppLaunch(app: LauncherApp, onOpened: () -> Unit) {
-        val preferences = model.preferences.value
+        val preferences = settingsModel.preferences.value
         if (preferences == null) {
             Toast.makeText(this, R.string.preferences_error, Toast.LENGTH_SHORT).show()
             return
@@ -176,7 +187,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun withSettingsAuthentication(action: () -> Unit) {
-        val preferences = model.preferences.value
+        val preferences = settingsModel.preferences.value
         if (preferences == null) {
             Toast.makeText(this, R.string.preferences_error, Toast.LENGTH_SHORT).show()
         } else if (preferences.appAuthentication) appAuthenticator.authenticate(action)

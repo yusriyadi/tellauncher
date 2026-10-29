@@ -1,4 +1,4 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.security
 
 import android.app.Activity
 import android.app.KeyguardManager
@@ -10,6 +10,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
+import id.tellolabs.launcher.R
 
 /** System authentication only. Success and pending actions are never persisted or restored. */
 internal class AppAuthenticator(private val activity: FragmentActivity) {

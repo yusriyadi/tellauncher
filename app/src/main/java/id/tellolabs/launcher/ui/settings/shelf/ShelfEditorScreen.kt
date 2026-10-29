@@ -1,10 +1,10 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.ui.settings.shelf
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -16,6 +16,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.tellolabs.launcher.R
+import id.tellolabs.launcher.data.preferences.Shelf
+import id.tellolabs.launcher.model.LauncherApp
+import id.tellolabs.launcher.ui.components.AppIcon
+import id.tellolabs.launcher.ui.components.EmptyMessage
+import id.tellolabs.launcher.ui.components.PageHeader
+import id.tellolabs.launcher.ui.components.SearchField
+import id.tellolabs.launcher.ui.components.ToggleSetting
 import java.util.UUID
 import kotlinx.coroutines.launch
 

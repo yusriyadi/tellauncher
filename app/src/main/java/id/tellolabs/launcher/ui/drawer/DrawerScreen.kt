@@ -1,4 +1,4 @@
-package id.tellolabs.launcher
+package id.tellolabs.launcher.ui.drawer
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -6,11 +6,11 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,19 +18,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.tellolabs.launcher.R
+import id.tellolabs.launcher.data.preferences.ALL_APPS_SHELF_ID
+import id.tellolabs.launcher.data.preferences.LauncherPreferences
+import id.tellolabs.launcher.model.LauncherApp
+import id.tellolabs.launcher.ui.LauncherViewModel
+import id.tellolabs.launcher.ui.components.AppIcon
+import id.tellolabs.launcher.ui.components.EmptyMessage
+import id.tellolabs.launcher.ui.components.SearchField
 
 @Composable
 internal fun DrawerScreen(
-    model: LauncherModel,
+    model: LauncherViewModel,
     preferences: LauncherPreferences?,
     apps: List<LauncherApp>?,
     preferenceError: Boolean,
