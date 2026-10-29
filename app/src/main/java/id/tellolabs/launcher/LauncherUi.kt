@@ -449,9 +449,8 @@ fun LauncherUi(
                             }
                             item {
                                 SettingLink(
-                                    stringResource(if (defaultHome) R.string.default_active else R.string.default_launcher),
-                                    stringResource(R.string.default_hint),
-                                    enabled = !defaultHome,
+                                    stringResource(if (defaultHome) R.string.default_change else R.string.default_launcher),
+                                    stringResource(if (defaultHome) R.string.default_active else R.string.default_hint),
                                     onClick = onDefaultHome,
                                 )
                             }

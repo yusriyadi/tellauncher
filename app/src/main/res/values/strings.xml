@@ -59,7 +59,8 @@
     <string name="hidden_count">Hidden apps: %1$d</string>
     <string name="hidden_hint">Turn on to hide an app from All apps and the default drawer. Apps selected for a custom shelf remain visible there. Search still finds all apps. This is not a security feature.</string>
     <string name="default_launcher">Set as default launcher</string>
-    <string name="default_active">Already the default launcher</string>
+    <string name="default_change">Change default launcher</string>
+    <string name="default_active">Tellauncher is the default launcher. Tap to change.</string>
     <string name="default_hint">Choose Tellauncher as your Home app</string>
     <string name="launch_error">Unable to open app</string>
     <string name="save_error">Unable to save settings. Please try again.</string>
