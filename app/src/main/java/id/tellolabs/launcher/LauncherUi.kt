@@ -233,7 +233,7 @@ fun LauncherUi(
                 Screen.Settings -> Column(
                     Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
                 ) {
-                    PageHeader(R.string.settings, ::home)
+                    PageHeader(R.string.settings, onBack = ::home)
                     val prefs = preferences
                     if (prefs == null) {
                         EmptyMessage(if (preferenceError) R.string.preferences_error else R.string.loading)
@@ -842,7 +842,12 @@ internal fun AppIcon(app: LauncherApp, modifier: Modifier) {
 }
 
 @Composable
-internal fun SearchField(query: String, onQuery: (String) -> Unit, enabled: Boolean = true) {
+internal fun SearchField(
+    query: String,
+    onQuery: (String) -> Unit,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
     val clearLabel = stringResource(R.string.clear_search)
     OutlinedTextField(
         value = query,
@@ -850,7 +855,7 @@ internal fun SearchField(query: String, onQuery: (String) -> Unit, enabled: Bool
         enabled = enabled,
         singleLine = true,
         placeholder = { Text(stringResource(R.string.search_apps), fontSize = 15.sp) },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
         shape = RoundedCornerShape(16.dp),
         trailingIcon = if (query.isNotEmpty()) {
             { IconButton(onClick = { onQuery("") }, enabled = enabled) {
@@ -863,7 +868,11 @@ internal fun SearchField(query: String, onQuery: (String) -> Unit, enabled: Bool
 }
 
 @Composable
-internal fun PageHeader(title: Int, onBack: () -> Unit) {
+internal fun PageHeader(
+    title: Int,
+    actions: @Composable RowScope.() -> Unit = {},
+    onBack: () -> Unit,
+) {
     Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         val backLabel = stringResource(R.string.back)
@@ -871,7 +880,9 @@ internal fun PageHeader(title: Int, onBack: () -> Unit) {
             Text("‹", fontSize = 32.sp, modifier = Modifier.semantics { contentDescription = backLabel })
         }
         Spacer(Modifier.width(8.dp))
-        Text(stringResource(title), fontSize = 20.sp, fontWeight = FontWeight.Light)
+        Text(stringResource(title), fontSize = 20.sp, fontWeight = FontWeight.Light,
+            modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        actions()
     }
 }
 
