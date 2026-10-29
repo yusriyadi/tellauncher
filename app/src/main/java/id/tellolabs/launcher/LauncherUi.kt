@@ -157,6 +157,14 @@ fun LauncherUi(
                     },
                 )
                 Screen.Drawer -> {
+                    val search = query.trim()
+                    val settingsLabel = stringResource(R.string.launcher_settings)
+                    val showSettings = if (search.isNotEmpty()) {
+                        settingsLabel.contains(search, ignoreCase = true)
+                    } else {
+                        preferences?.showLauncherSettings == true &&
+                            (preferences?.customShelf != true || preferences?.activeShelfId == ALL_APPS_SHELF_ID)
+                    }
                     val visibleApps = remember(apps, preferences, query) {
                         val search = query.trim()
                         apps.orEmpty().filter { app ->
@@ -213,7 +221,7 @@ fun LauncherUi(
                                         apps = visibleApps,
                                         grid = preferences?.grid == true,
                                         showIcons = preferences?.listIcons == true,
-                                        showSettings = preferences?.showLauncherSettings != false,
+                                        showSettings = showSettings,
                                         emptyMessage = if (query.isBlank()) R.string.no_apps else R.string.no_results,
                                         onLaunch = { app -> keyboard?.hide(); onLaunch(app) { home() } },
                                         onHide = { app ->

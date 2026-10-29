@@ -13,7 +13,7 @@
     <string name="show_drawer">Show drawer</string>
     <string name="show_drawer_hint">Show an app drawer button at the bottom of Home</string>
     <string name="show_launcher_settings">Show launcher settings in drawer</string>
-    <string name="show_launcher_settings_hint">Show the Settings item in List and Grid. You can always long press Home to open Settings.</string>
+    <string name="show_launcher_settings_hint">Show the Settings item in All apps only. Settings remains searchable even when this is off. You can always long press Home to open Settings.</string>
     <string name="open_alarm">Open alarms</string>
     <string name="open_calendar">Open calendar</string>
     <string name="alarm_error">No available app could open alarms</string>
