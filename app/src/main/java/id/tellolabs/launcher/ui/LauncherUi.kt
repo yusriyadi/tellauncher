@@ -28,8 +28,6 @@ import id.tellolabs.launcher.ui.settings.backup.SettingsBackupViewModel
 import id.tellolabs.launcher.ui.settings.backup.SettingsImportDialog
 import id.tellolabs.launcher.ui.settings.shelf.ShelfEditorScreen
 
-private enum class Screen { Home, Drawer, Settings, Hidden, ShelfEditor, ProtectedApps }
-
 @Composable
 fun LauncherUi(
     model: LauncherViewModel,
@@ -59,7 +57,7 @@ fun LauncherUi(
     val appError by model.appError.collectAsStateWithLifecycle()
     val backupBusy by backupModel.busy.collectAsStateWithLifecycle()
     val pendingImport by backupModel.pendingImport.collectAsStateWithLifecycle()
-    var screen by rememberSaveable { mutableStateOf(Screen.Home) }
+    var screen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf(Screen.Home) }
     var editingShelfId by rememberSaveable { mutableStateOf<String?>(null) }
     var activateNewShelf by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }

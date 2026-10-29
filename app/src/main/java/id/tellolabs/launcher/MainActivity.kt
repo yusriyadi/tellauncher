@@ -32,6 +32,7 @@ import id.tellolabs.launcher.ui.LauncherUi
 import id.tellolabs.launcher.ui.LauncherViewModel
 import id.tellolabs.launcher.ui.settings.SettingsViewModel
 import id.tellolabs.launcher.ui.settings.backup.SettingsBackupViewModel
+import id.tellolabs.launcher.ui.state.ActivitySavedState
 import id.tellolabs.launcher.ui.theme.LauncherTheme
 import id.tellolabs.launcher.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
@@ -60,9 +61,10 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        val restoredState = ActivitySavedState.compatibleOrNull(savedInstanceState)
+        super.onCreate(restoredState)
         appAuthenticator = AppAuthenticator(this)
-        homeRequest = savedInstanceState?.getInt("home_request") ?: 0
+        homeRequest = restoredState?.getInt("home_request") ?: 0
         enableEdgeToEdge()
         ContextCompat.registerReceiver(
             this, packageReceiver,
@@ -155,6 +157,7 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        ActivitySavedState.mark(outState)
         outState.putInt("home_request", homeRequest)
         super.onSaveInstanceState(outState)
     }
