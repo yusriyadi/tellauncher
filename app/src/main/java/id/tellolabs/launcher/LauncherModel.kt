@@ -87,6 +87,9 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
     fun setAppAuthentication(value: Boolean) = save { repository.setAppAuthentication(value) }
     fun setProtected(packageName: String, protected: Boolean) = save { repository.setProtected(packageName, protected) }
     fun setHidden(packageName: String, hidden: Boolean) = save { repository.setHidden(packageName, hidden) }
+    fun setSwipeToSwitchShelves(enabled: Boolean) = save { repository.setSwipeToSwitchShelves(enabled) }
+    suspend fun reorderShelves(ids: List<String>): Boolean = persist { repository.reorderShelves(ids) }
+    fun switchShelf(direction: Int) = save { repository.switchShelf(direction) }
     fun setCustomShelf(enabled: Boolean) = save { repository.setCustomShelf(enabled) }
     fun setActiveShelf(id: String) = save { repository.setActiveShelf(id) }
     fun removeFromShelf(shelfId: String, packageName: String) = save { repository.removeFromShelf(shelfId, packageName) }

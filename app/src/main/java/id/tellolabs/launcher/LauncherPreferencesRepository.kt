@@ -23,6 +23,7 @@ private val appAuthenticationKey = booleanPreferencesKey("app_authentication")
 private val protectedPackagesKey = stringSetPreferencesKey("protected_packages")
 private val shelvesKey = stringPreferencesKey("shelves")
 private val customShelfKey = booleanPreferencesKey("custom_shelf_enabled")
+private val swipeShelvesKey = booleanPreferencesKey("swipe_to_switch_shelves")
 private val activeShelfKey = stringPreferencesKey("active_shelf_id")
 internal const val ALL_APPS_SHELF_ID = "__all_apps__"
 
@@ -41,6 +42,7 @@ data class LauncherPreferences(
     val protectedPackages: Set<String> = emptySet(),
     val shelves: List<Shelf> = emptyList(),
     val customShelf: Boolean = false,
+    val swipeToSwitchShelves: Boolean = false,
     val activeShelfId: String? = null,
 ) {
     val activeShelf: Shelf? get() = shelves.find { it.id == activeShelfId }
@@ -64,6 +66,7 @@ class LauncherPreferencesRepository(context: Context) {
             appAuthentication = values[appAuthenticationKey] ?: false,
             protectedPackages = values[protectedPackagesKey].orEmpty(),
             shelves = shelves,
+            swipeToSwitchShelves = values[swipeShelvesKey] ?: false,
             customShelf = values[customShelfKey] == true && shelves.isNotEmpty(),
             activeShelfId = values[activeShelfKey]?.takeIf { id ->
                 id == ALL_APPS_SHELF_ID || shelves.any { it.id == id }
@@ -90,6 +93,29 @@ class LauncherPreferencesRepository(context: Context) {
         store.edit {
             val packages = it[hiddenKey].orEmpty()
             it[hiddenKey] = if (hidden) packages + packageName else packages - packageName
+        }
+    }
+
+    suspend fun setSwipeToSwitchShelves(enabled: Boolean) { store.edit { it[swipeShelvesKey] = enabled } }
+
+    suspend fun reorderShelves(ids: List<String>) {
+        store.edit {
+            val shelves = decodeShelves(it[shelvesKey])
+            // Reorder IDs only: membership and names always come from current saved data.
+            require(ids.size == shelves.size && ids.toSet() == shelves.map { shelf -> shelf.id }.toSet())
+            val byId = shelves.associateBy { shelf -> shelf.id }
+            it[shelvesKey] = encodeShelves(ids.map { id -> byId.getValue(id) })
+        }
+    }
+
+    suspend fun switchShelf(direction: Int) {
+        require(direction == -1 || direction == 1)
+        store.edit {
+            val shelves = decodeShelves(it[shelvesKey])
+            if (it[customShelfKey] != true || it[swipeShelvesKey] != true || shelves.isEmpty()) return@edit
+            val ids = listOf(ALL_APPS_SHELF_ID) + shelves.map { shelf -> shelf.id }
+            val activeId = it[activeShelfKey]?.takeIf { id -> id in ids } ?: shelves.first().id
+            ids.getOrNull(ids.indexOf(activeId) + direction)?.let { id -> it[activeShelfKey] = id }
         }
     }
 
@@ -170,6 +196,7 @@ class LauncherPreferencesRepository(context: Context) {
             // Imported protection must be explicitly enabled with local device authentication.
             it[appAuthenticationKey] = false
             it[shelvesKey] = shelves
+            it[swipeShelvesKey] = settings.swipeToSwitchShelves
             it[customShelfKey] = settings.customShelf
             settings.activeShelfId?.let { id -> it[activeShelfKey] = id }
         }

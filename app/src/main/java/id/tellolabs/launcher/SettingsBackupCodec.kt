@@ -48,6 +48,7 @@ internal object SettingsBackupCodec {
                 put("hiddenApps", JSONArray(settings.hiddenPackages.sorted()))
                 put("customShelf", JSONObject().apply {
                     put("enabled", settings.customShelf)
+                    put("swipeToSwitchShelves", settings.swipeToSwitchShelves)
                     put("activeShelfId", settings.activeShelfId ?: JSONObject.NULL)
                     put("shelves", shelves)
                 })
@@ -105,6 +106,8 @@ internal object SettingsBackupCodec {
                     themeMode = theme,
                     shelves = shelves,
                     customShelf = enabled,
+                    swipeToSwitchShelves = if (customShelf.has("swipeToSwitchShelves"))
+                        customShelf.requiredBoolean("swipeToSwitchShelves") else false,
                     activeShelfId = activeId,
                     appAuthentication = authentication.requiredBoolean("enabled"),
                     protectedPackages = authentication.packages("protectedApps"),

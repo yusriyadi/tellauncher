@@ -15,11 +15,14 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -60,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -177,26 +181,50 @@ fun LauncherUi(
                                 model.setActiveShelf(id)
                             }
                         }
-                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                        val swipeEnabled = prefs?.customShelf == true && prefs.shelves.isNotEmpty() &&
+                            prefs.swipeToSwitchShelves && query.isBlank()
+                        val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
+                        Box(Modifier.weight(1f).fillMaxWidth().then(
+                            if (swipeEnabled) Modifier.pointerInput(prefs?.activeShelfId, swipeThreshold) {
+                                var distance = 0f
+                                detectHorizontalDragGestures(
+                                    onDragStart = { distance = 0f },
+                                    onDragCancel = { distance = 0f },
+                                    onDragEnd = {
+                                        when {
+                                            distance <= -swipeThreshold -> model.switchShelf(1)
+                                            distance >= swipeThreshold -> model.switchShelf(-1)
+                                        }
+                                        distance = 0f
+                                    },
+                                    onHorizontalDrag = { change, amount ->
+                                        change.consume()
+                                        distance += amount
+                                    },
+                                )
+                            } else Modifier,
+                        )) {
                             when {
                                 preferenceError -> EmptyMessage(R.string.preferences_error)
                                 appError -> EmptyMessage(R.string.load_error)
                                 apps == null || preferences == null -> EmptyMessage(R.string.loading)
-                                else -> AppCollection(
-                                    apps = visibleApps,
-                                    grid = preferences?.grid == true,
-                                    showIcons = preferences?.listIcons == true,
-                                    showSettings = preferences?.showLauncherSettings != false,
-                                    emptyMessage = if (query.isBlank()) R.string.no_apps else R.string.no_results,
-                                    onLaunch = { app -> keyboard?.hide(); onLaunch(app) { home() } },
-                                    onHide = { app ->
-                                        val shelf = if (prefs?.customShelf == true) prefs.activeShelf else null
-                                        if (shelf != null) model.removeFromShelf(shelf.id, app.packageName)
-                                        else model.setHidden(app.packageName, true)
-                                    },
-                                    onAppInfo = { keyboard?.hide(); onAppInfo(it) },
-                                    onSettings = { keyboard?.hide(); screen = Screen.Settings },
-                                )
+                                else -> key(prefs?.activeShelfId) {
+                                    AppCollection(
+                                        apps = visibleApps,
+                                        grid = preferences?.grid == true,
+                                        showIcons = preferences?.listIcons == true,
+                                        showSettings = preferences?.showLauncherSettings != false,
+                                        emptyMessage = if (query.isBlank()) R.string.no_apps else R.string.no_results,
+                                        onLaunch = { app -> keyboard?.hide(); onLaunch(app) { home() } },
+                                        onHide = { app ->
+                                            val shelf = if (prefs?.customShelf == true) prefs.activeShelf else null
+                                            if (shelf != null) model.removeFromShelf(shelf.id, app.packageName)
+                                            else model.setHidden(app.packageName, true)
+                                        },
+                                        onAppInfo = { keyboard?.hide(); onAppInfo(it) },
+                                        onSettings = { keyboard?.hide(); screen = Screen.Settings },
+                                    )
+                                }
                             }
                         }
                         SearchField(query, { query = it })
@@ -210,7 +238,11 @@ fun LauncherUi(
                     if (prefs == null) {
                         EmptyMessage(if (preferenceError) R.string.preferences_error else R.string.loading)
                     } else {
+                        val listState = rememberLazyListState()
+                        val shelfOrder = rememberShelfReorderState(prefs.shelves, listState)
+                        val scope = rememberCoroutineScope()
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
                         ) {
@@ -272,6 +304,14 @@ fun LauncherUi(
                                 )
                             }
                             if (prefs.customShelf) {
+                                item(key = "swipe_shelves") {
+                                    ToggleSetting(
+                                        title = stringResource(R.string.swipe_to_switch_shelves),
+                                        subtitle = stringResource(R.string.swipe_shelves_hint),
+                                        checked = prefs.swipeToSwitchShelves,
+                                        onChange = model::setSwipeToSwitchShelves,
+                                    )
+                                }
                                 item(key = "all_apps_shelf") {
                                     ShelfSettingRow(
                                         name = stringResource(R.string.all_apps),
@@ -279,12 +319,51 @@ fun LauncherUi(
                                         onSelect = { model.setActiveShelf(ALL_APPS_SHELF_ID) },
                                     )
                                 }
-                                items(prefs.shelves, key = { "shelf_${it.id}" }) { shelf ->
+                                items(shelfOrder.shelves, key = { "shelf_${it.id}" }) { shelf ->
+                                    val reorderLabel = stringResource(R.string.reorder_shelf, shelf.name)
+                                    val moveUpLabel = stringResource(R.string.move_shelf_up, shelf.name)
+                                    val moveDownLabel = stringResource(R.string.move_shelf_down, shelf.name)
                                     ShelfSettingRow(
                                         name = shelf.name,
                                         selected = prefs.activeShelfId == shelf.id,
                                         onSelect = { model.setActiveShelf(shelf.id) },
                                         onEdit = { editShelf(shelf.id) },
+                                        modifier = Modifier.shelfDragOffset(shelfOrder, shelf.id),
+                                        dragHandle = {
+                                            Box(
+                                                Modifier.size(48.dp)
+                                                    .semantics {
+                                                        contentDescription = reorderLabel
+                                                        customActions = listOf(-1 to moveUpLabel, 1 to moveDownLabel)
+                                                            .mapNotNull { (direction, label) ->
+                                                                val from = shelfOrder.shelves.indexOfFirst { it.id == shelf.id }
+                                                                val to = from + direction
+                                                                if (shelfOrder.saving || to !in shelfOrder.shelves.indices) null
+                                                                else CustomAccessibilityAction(label) {
+                                                                    val ids = shelfOrder.shelves.map { it.id }.toMutableList()
+                                                                    ids.add(to, ids.removeAt(from))
+                                                                    scope.launch { model.reorderShelves(ids) }
+                                                                    true
+                                                                }
+                                                            }
+                                                    }
+                                                    .pointerInput(shelfOrder, shelf.id) {
+                                                        detectDragGestures(
+                                                            onDragStart = { shelfOrder.start(shelf.id) },
+                                                            onDragCancel = { shelfOrder.cancel() },
+                                                            onDragEnd = { scope.launch { shelfOrder.drop(model::reorderShelves) } },
+                                                            onDrag = { change, amount ->
+                                                                change.consume()
+                                                                shelfOrder.drag(amount.y)
+                                                            },
+                                                        )
+                                                    },
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Icon(painterResource(R.drawable.ic_drag_indicator), contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        },
                                     )
                                 }
                                 item {
@@ -840,23 +919,36 @@ internal fun EmptyMessage(message: Int) {
 }
 
 @Composable
-private fun ShelfSettingRow(name: String, selected: Boolean, onSelect: () -> Unit, onEdit: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(48.dp).selectable(
+private fun ShelfSettingRow(
+    name: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    dragHandle: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).heightIn(min = 48.dp).selectable(
             selected = selected,
             role = androidx.compose.ui.semantics.Role.RadioButton,
             onClick = onSelect,
-        ).semantics { contentDescription = name }, contentAlignment = Alignment.Center) {
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             RadioButton(selected = selected, onClick = null)
         }
-        Row(Modifier.weight(1f).clickable(onClick = onEdit ?: onSelect).heightIn(min = 48.dp)
-            .padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(name, modifier = Modifier.weight(1f), fontSize = 16.sp)
-            if (onEdit != null) {
-                Text(stringResource(R.string.edit), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 8.dp))
+        Text(name, modifier = Modifier.weight(1f).padding(start = 8.dp), fontSize = 16.sp)
+        if (onEdit != null) {
+            IconButton(onClick = onEdit) {
+                Icon(
+                    painterResource(R.drawable.ic_edit),
+                    contentDescription = stringResource(R.string.edit_shelf),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
+        dragHandle?.invoke()
     }
 }
 

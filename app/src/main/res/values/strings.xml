@@ -68,6 +68,11 @@
     <string name="default_error">Open Android Settings to choose your default Home app</string>
     <string name="custom_shelf">Custom shelf</string>
     <string name="custom_shelf_hint">Show one shelf in the drawer. Search still finds all apps.</string>
+    <string name="swipe_to_switch_shelves">Swipe to switch shelves</string>
+    <string name="swipe_shelves_hint">Swipe left or right in the app list. All apps comes first, followed by your shelf order. Unavailable while searching.</string>
+    <string name="reorder_shelf">Drag to reorder %1$s</string>
+    <string name="move_shelf_up">Move %1$s up</string>
+    <string name="move_shelf_down">Move %1$s down</string>
     <string name="add_shelf">Add shelf</string>
     <string name="edit_shelf">Edit shelf</string>
     <string name="shelf_name">Shelf name</string>

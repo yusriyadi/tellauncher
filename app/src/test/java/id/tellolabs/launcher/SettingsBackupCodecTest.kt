@@ -13,7 +13,7 @@ class SettingsBackupCodecTest {
         themeMode = ThemeMode.NIGHT, appAuthentication = true,
         protectedPackages = setOf("com.not.installed"),
         shelves = listOf(Shelf("fav", "Fav", setOf("com.example.app", "com.not.installed"))),
-        customShelf = true, activeShelfId = "fav",
+        customShelf = true, activeShelfId = "fav", swipeToSwitchShelves = true,
     )
     private fun encoded() = SettingsBackupCodec.encode(settings, "0.4.1", exportedAt)
 
@@ -34,6 +34,24 @@ class SettingsBackupCodecTest {
         val original = settings.copy(activeShelfId = ALL_APPS_SHELF_ID)
         assertEquals(original, SettingsBackupCodec.decode(
             SettingsBackupCodec.encode(original, "0.4.1", exportedAt)).settings)
+    }
+
+    @Test fun shelfOrderSurvivesBackup() {
+        val original = settings.copy(shelves = listOf(
+            Shelf("works", "Works", emptySet()), settings.shelves.first(),
+            Shelf("focus", "Focus", emptySet()),
+        ))
+        assertEquals(original, SettingsBackupCodec.decode(
+            SettingsBackupCodec.encode(original, "0.4.1", exportedAt)).settings)
+    }
+
+    @Test fun olderBackupDefaultsSwipeToOff() {
+        val json = JSONObject(encoded())
+        val custom = json.getJSONObject("settings").getJSONObject("customShelf")
+        custom.remove("swipeToSwitchShelves")
+        assertFalse(SettingsBackupCodec.decode(json.toString()).settings.swipeToSwitchShelves)
+        custom.put("swipeToSwitchShelves", "true")
+        assertInvalid(json.toString())
     }
 
     @Test fun futureSchemaIsRejected() {
